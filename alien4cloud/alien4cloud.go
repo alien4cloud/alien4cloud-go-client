@@ -15,28 +15,24 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"reflect"
 	"regexp"
-
-	"github.com/goware/urlx"
-
-	"github.com/pkg/errors"
-
 	"strings"
-
-	"bytes"
-
 	"time"
 
-	"reflect"
-
-	"os"
+	"github.com/goware/urlx"
+	"github.com/pkg/errors"
 )
 
 // Client is the client interface to Alien4cloud service
@@ -44,7 +40,7 @@ type Client interface {
 	Login() error
 	Logout() error
 	// Create an application from a template and return its ID
-	CreateAppli(appName string, appTemplate string) error
+	CreateAppli(appName string, appTemplate string) (string, error)
 	// Return the Alien4Cloud environment ID from a given application ID and environment name
 	GetEnvironmentIDbyName(appID string, envName string) (string, error)
 	// Return true if the application with the given ID exists
@@ -56,7 +52,7 @@ type Client interface {
 	SetTagToApplication(applicationID string, tagKey string, tagValue string) error
 	GetApplicationTag(applicationID string, tagKey string) (string, error)
 	// Deploy the given application in the given environment using the given orchestrator
-	DeployApplication(appID string, envName string, envID string, orchName string, orchID string, location string) error
+	DeployApplication(appID string, envID string, orchName string, location string) error
 	GetDeploymentList(appID string, envID string) ([]Deployment, error)
 	// Undeploy an application
 	UndeployApplication(appID string, envID string) error
@@ -88,6 +84,9 @@ type Client interface {
 }
 
 const (
+	// DefaultEnvironmentName is the default name of the environment created by
+	// Alien4Cloud for an application
+	DefaultEnvironmentName = "Environment"
 	// ApplicationDeploymentInProgress a4c status
 	ApplicationDeploymentInProgress = "deployment_in_progress"
 	// ApplicationDeployed a4c status
@@ -207,7 +206,13 @@ func NewClient(address string, user string, password string, wfTimeout int, caFi
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig: tlsConfig,
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     tlsConfig,
 	}
 
 	return &a4cClient{
@@ -275,11 +280,18 @@ func (c *a4cClient) do(method string, path string, body []byte, headers []Header
 
 // Login login to alien4cloud
 func (c *a4cClient) Login() error {
-	request, err := http.NewRequest("POST", fmt.Sprintf("%s/login?username=%s&password=%s&submit=Login", c.baseURL, c.username, c.password), nil)
+	//	request, err := http.NewRequest("POST", fmt.Sprintf("%s/login?username=%s&password=%s&submit=Login", c.baseURL, c.username, c.password), nil)
+	values := url.Values{}
+	values.Set("username", c.username)
+	values.Set("password", c.password)
+	values.Set("submit", "Login")
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/login", c.baseURL),
+		strings.NewReader(values.Encode()))
 	if err != nil {
 		log.Panic(err)
 	}
 	request.Header.Add("Accept", "application/json")
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	response, err := c.Client.Do(request)
 
@@ -399,12 +411,13 @@ type Application struct {
 }
 
 // CreateAppli Create an application from a template and return its ID
-func (c *a4cClient) CreateAppli(appName string, appTemplate string) error {
+func (c *a4cClient) CreateAppli(appName string, appTemplate string) (string, error) {
 
 	topologyTemplateID, err := c.getTopologyTemplateIDByName(appTemplate)
 
+	var appID string
 	if err != nil {
-		return errors.Wrapf(err, "Unable to get the topology template id of template '%s'", appTemplate)
+		return appID, errors.Wrapf(err, "Unable to get the topology template id of template '%s'", appTemplate)
 	}
 
 	appliCreateJSON, err := json.Marshal(
@@ -416,7 +429,7 @@ func (c *a4cClient) CreateAppli(appName string, appTemplate string) error {
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "Cannot marshal an a4cAppliCreateRequestIn structure")
+		return appID, errors.Wrap(err, "Cannot marshal an a4cAppliCreateRequestIn structure")
 	}
 
 	response, err := c.do(
@@ -432,18 +445,18 @@ func (c *a4cClient) CreateAppli(appName string, appTemplate string) error {
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "Cannot send a request to create an application")
+		return appID, errors.Wrap(err, "Cannot send a request to create an application")
 	}
 
 	if response.StatusCode != http.StatusCreated {
-		return getError(response.Body)
+		return appID, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 
 	if err != nil {
-		return errors.Wrap(err, "Cannot read the body of the result of the application creation")
+		return appID, errors.Wrap(err, "Cannot read the body of the result of the application creation")
 	}
 
 	var appStruct struct {
@@ -452,10 +465,12 @@ func (c *a4cClient) CreateAppli(appName string, appTemplate string) error {
 
 	err = json.Unmarshal(responseBody, &appStruct)
 	if err != nil {
-		return errors.Wrap(err, "Cannot unmarshal the reponse of the application creation")
+		return appID, errors.Wrap(err, "Cannot unmarshal the reponse of the application creation")
 	}
 
-	return nil
+	appID = appStruct.Data
+
+	return appID, err
 }
 
 // GetEnvironmentIDbyName Return the Alien4Cloud environment ID from a given application ID and environment name
@@ -820,8 +835,12 @@ func (c *a4cClient) GetApplicationTag(applicationID string, tagKey string) (stri
 //////////////////////////////////////////////
 
 // DeployApplication Deploy the given application in the given environment using the given orchestrator
-func (c *a4cClient) DeployApplication(appID string, envName string, envID string, orchName string, orchID string, location string) error {
+func (c *a4cClient) DeployApplication(appID string, envID string, orchName string, location string) error {
 
+	orchID, err := c.GetOrchestratorIDbyName(orchName)
+	if err != nil {
+		return errors.Wrapf(err, "Can't get ID or orchestrator %q", orchName)
+	}
 	locationIds, err := c.GetOrchestratorLocations(orchID)
 
 	if err != nil {
