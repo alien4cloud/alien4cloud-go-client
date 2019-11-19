@@ -16,7 +16,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/alien4cloud/alien4cloud-go-client/v2/alien4cloud"
 )
@@ -70,5 +73,49 @@ func main() {
 	err = client.DeployApplication(appID, envID, locationName)
 	if err != nil {
 		log.Panic(err)
+	}
+
+	// Wait for the end of deployment
+	done := false
+	log.Printf("Waiting for the end of deployment...")
+	var filters alien4cloud.LogFilter
+	logIndex := 0
+	for !done {
+		time.Sleep(5 * time.Second)
+
+		a4cLogs, nbLogs, err := client.GetLogsOfApplication(appID, envID, filters, logIndex)
+		log.Printf("Nb logs: %d\n", nbLogs)
+		if nbLogs > 0 {
+			previousIndex := logIndex
+			logIndex = logIndex + nbLogs
+			for idx := previousIndex; idx < logIndex; idx++ {
+				fmt.Printf("idx %d deployment %s pass dep %s level %s worflow %s execution %s node %s instance %s interface %s operation %s\n",
+					idx,
+					a4cLogs[idx].DeploymentID,
+					a4cLogs[idx].DeploymentPaaSID,
+					a4cLogs[idx].Level,
+					a4cLogs[idx].WorkflowID,
+					a4cLogs[idx].ExecutionID,
+					a4cLogs[idx].NodeID,
+					a4cLogs[idx].InstanceID,
+					a4cLogs[idx].InterfaceName,
+					a4cLogs[idx].OperationName)
+
+				fmt.Printf("%s\n", a4cLogs[idx].Content)
+			}
+		}
+
+		status, err := client.GetDeploymentStatus(appID, envID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		status = strings.ToLower(status)
+		done = (status == alien4cloud.ApplicationDeployed || status == alien4cloud.ApplicationError)
+		if done {
+			log.Printf("Deployment %s\n", status)
+			done = true
+			break
+		}
 	}
 }
