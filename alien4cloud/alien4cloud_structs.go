@@ -21,6 +21,64 @@ import (
 	"time"
 )
 
+// CSARDependency holds properties defining a dependency on an archive
+type CSARDependency struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+	Hash    string `json:"hash,omitempty"`
+}
+
+// LocationModifierReference holds a reference to a location modifier
+type LocationModifierReference struct {
+	PluginID string `json:"pluginId"`
+	BeanName string `json:"beanName"`
+	Phase    string `json:"phase,omitempty"`
+}
+
+// SecretProviderConfiguration holds the configuraiton of a secret provider
+type SecretProviderConfiguration struct {
+	PluginName    string      `json:"pluginName,omitempty"`
+	Configuration interface{} `json:"configuration,omitempty"`
+}
+
+// LocationConfiguration holds a location configuration properties
+type LocationConfiguration struct {
+	ID                          string                      `json:"id"`
+	CreationDate                int64                       `json:"creationDate,omitempty"`
+	LastUpdateDate              int64                       `json:"lastUpdateDate,omitempty"`
+	Dependencies                []CSARDependency            `json:"dependencies,omitempty"`
+	EnvironmentType             string                      `json:"environmentType,omitempty"`
+	InfrastructureType          string                      `json:"infrastructureType,omitempty"`
+	MetaProperties              map[string]string           `json:"metaProperties,omitempty"`
+	Modifiers                   []LocationModifierReference `json:"modifiers,omitempty"`
+	Name                        string                      `json:"name,omitempty"`
+	OrchestratorID              string                      `json:"orchestratorId,omitempty"`
+	SecretProviderConfiguration SecretProviderConfiguration `json:"secretProviderConfiguration,omitempty"`
+	ApplicationPermissions      map[string][]string         `json:"applicationPermissions,omitempty"`
+	EnvironmentPermissions      map[string][]string         `json:"environmentPermissions,omitempty"`
+	EnvironmentTypePermissions  map[string][]string         `json:"environmentTypePermissions,omitempty"`
+	GroupPermissions            map[string][]string         `json:"groupPermissions,omitempty"`
+	UserPermissions             map[string][]string         `json:"userPermissions,omitempty"`
+}
+
+// Orchestrator holds properties of an orchestrator
+type Orchestrator struct {
+	ID                    string `json:"id"`
+	Name                  string `json:"name"`
+	PluginID              string `json:"pluginId,omitempty"`
+	PluginBean            string `json:"pluginBean,omitempty"`
+	DeploymentNamePattern string `json:"deploymentNamePattern,omitempty"`
+	State                 string `json:"state,omitempty"`
+}
+
+// LocationMatch holds details on a Location where an application can be deployed
+type LocationMatch struct {
+	Location     LocationConfiguration `json:"location"`
+	Orchestrator Orchestrator          `json:"orchestrator"`
+	Ready        bool                  `json:"ready"`
+	Reasons      interface{}           `json:"reasons,omitempty"`
+}
+
 // TopologyEditorContext A4C topology editor context to store PreviousOperationID
 type TopologyEditorContext struct {
 	AppID               string

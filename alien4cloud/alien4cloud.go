@@ -51,8 +51,11 @@ type Client interface {
 	DeleteApplication(appID string) error
 	SetTagToApplication(applicationID string, tagKey string, tagValue string) error
 	GetApplicationTag(applicationID string, tagKey string) (string, error)
+	// Get matching locations where a given application can be deployed
+	GetLocationsMatching(topologyID string, envID string) ([]LocationMatch, error)
 	// Deploy the given application in the given environment using the given orchestrator
-	DeployApplication(appID string, envID string, orchName string, location string) error
+    // if location is empty, the first matching location will be used
+    DeployApplication(appID string, envID string, location string) error
 	GetDeploymentList(appID string, envID string) ([]Deployment, error)
 	// Undeploy an application
 	UndeployApplication(appID string, envID string) error
@@ -298,12 +301,11 @@ func (c *a4cClient) Login() error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-
-	response.Body.Close()
 
 	return nil
 }
@@ -324,12 +326,11 @@ func (c *a4cClient) Logout() error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-
-	response.Body.Close()
 
 	return nil
 }
@@ -362,13 +363,13 @@ func (c *a4cClient) getTopologyTemplateIDByName(topologyName string) (string, er
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot send a request to get the topology id")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot read the body of the request when getting topology id")
@@ -447,13 +448,13 @@ func (c *a4cClient) CreateAppli(appName string, appTemplate string) (string, err
 	if err != nil {
 		return appID, errors.Wrap(err, "Cannot send a request to create an application")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
 		return appID, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return appID, errors.Wrap(err, "Cannot read the body of the result of the application creation")
@@ -501,13 +502,13 @@ func (c *a4cClient) GetEnvironmentIDbyName(appID string, envName string) (string
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to send request to get environment ID from its name of an application")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot read the body of the search for '%s' environment", envName)
@@ -554,15 +555,14 @@ func (c *a4cClient) IsApplicationExist(applicationID string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "Cannot send a request to ensure an application exists")
 	}
+	defer response.Body.Close()
 
 	switch response.StatusCode {
 
 	case http.StatusOK:
-		response.Body.Close()
 		return true, nil
 
 	case http.StatusNotFound:
-		response.Body.Close()
 		return false, nil
 
 	default:
@@ -600,6 +600,7 @@ func (c *a4cClient) GetApplicationsID(filter string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
 	}
+	defer response.Body.Close()
 
 	switch response.StatusCode {
 	default:
@@ -607,13 +608,11 @@ func (c *a4cClient) GetApplicationsID(filter string) ([]string, error) {
 
 	case http.StatusNotFound:
 		// No application with this filter have been found
-		response.Body.Close()
 		return nil, nil
 
 	case http.StatusOK:
 
 		responseBody, err := ioutil.ReadAll(response.Body)
-		response.Body.Close()
 
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to read the response of A4C application list request")
@@ -681,6 +680,7 @@ func (c *a4cClient) GetApplicationByID(id string) (*Application, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
 	}
+	defer response.Body.Close()
 
 	switch response.StatusCode {
 	default:
@@ -688,13 +688,11 @@ func (c *a4cClient) GetApplicationByID(id string) (*Application, error) {
 
 	case http.StatusNotFound:
 		// No application with this filter have been found
-		response.Body.Close()
 		return nil, nil
 
 	case http.StatusOK:
 
 		responseBody, err := ioutil.ReadAll(response.Body)
-		response.Body.Close()
 
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to read the response of A4C application request")
@@ -744,12 +742,11 @@ func (c *a4cClient) DeleteApplication(appID string) error {
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to delete A4C application")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-
-	response.Body.Close()
 
 	return nil
 }
@@ -796,12 +793,11 @@ func (c *a4cClient) SetTagToApplication(applicationID string, tagKey string, tag
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to set a tag to an application")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-
-	response.Body.Close()
 
 	return nil
 }
@@ -834,38 +830,86 @@ func (c *a4cClient) GetApplicationTag(applicationID string, tagKey string) (stri
 // Methods related to deployment management //
 //////////////////////////////////////////////
 
+// Get matching locations where a given application can be deployed
+func (c *a4cClient) GetLocationsMatching(topologyID string, envID string) ([]LocationMatch, error) {
+	response, err := c.do(
+		"GET",
+		fmt.Sprintf("%s/topologies/%s/locations?environmentId=%s", a4CRestAPIPrefix, topologyID, envID),
+		nil,
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to get locations matching topology for application '%s' in '%s' environment",
+			topologyID, envID)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, getError(response.Body)
+	}
+
+	responseBody, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot read response to request on locations matching topology '%s' in '%s' environment",
+			topologyID, envID)
+	}
+	var res struct {
+		Data []LocationMatch `json:"data"`
+	}
+
+	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+		return nil, errors.Wrapf(err, "Cannot convert the body response to request on locations matching topology '%s' in '%s' environment",
+			topologyID, envID)
+	}
+
+	return res.Data, err
+}
+
 // DeployApplication Deploy the given application in the given environment using the given orchestrator
-func (c *a4cClient) DeployApplication(appID string, envID string, orchName string, location string) error {
+// if location is empty, the first matching location will be used
+func (c *a4cClient) DeployApplication(appID string, envID string, location string) error {
 
-	orchID, err := c.GetOrchestratorIDbyName(orchName)
+	// get locations matching this application
+	topologyID, err := c.getA4CTopologyID(appID, envID)
 	if err != nil {
-		return errors.Wrapf(err, "Can't get ID or orchestrator %q", orchName)
-	}
-	locationIds, err := c.GetOrchestratorLocations(orchID)
-
-	if err != nil {
-		return errors.Wrapf(err, "Unable to get the list of locations for orchestrator '%s'", orchID)
+		return errors.Wrapf(err, "Unable to get application topology for app %s and env %s",
+			appID, envID)
 	}
 
-	if len(locationIds) == 0 {
-		return fmt.Errorf("no locations is defined for orchestrator '%s'", orchID)
+	locationsMatch, err := c.GetLocationsMatching(topologyID, envID)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to get locations matching app %s env %s",
+			appID, envID)
 	}
 
 	locationID := ""
-	for _, loc := range locationIds {
-		if location == loc.Name {
-			locationID = loc.ID
+	orchestratorID := ""
+	for _, locationMatch := range locationsMatch {
+		if location == "" || locationMatch.Location.Name == location {
+			locationID = locationMatch.Location.ID
+			orchestratorID = locationMatch.Location.OrchestratorID
 			break
 		}
 	}
 	if locationID == "" {
-		log.Printf("Location not found , check your yorc configuration , will use default location\n")
-		locationID = locationIds[0].ID
+		// Return the list of possible locations names
+		var locationNames []string
+		for _, locationMatch := range locationsMatch {
+			locationNames = append(locationNames, locationMatch.Location.Name)
+		}
+		return errors.Errorf("Location %q not found in list of matching locations: %+v", location, locationNames)
 	}
 	// Set location policy for deployment
 	var locationPolicies LocationPoliciesPostRequestIn
 	locationPolicies.GroupsToLocations.A4CAll = locationID
-	locationPolicies.OrchestratorID = orchID
+	locationPolicies.OrchestratorID = orchestratorID
 
 	body, err := json.Marshal(locationPolicies)
 	if err != nil {
@@ -886,11 +930,11 @@ func (c *a4cClient) DeployApplication(appID string, envID string, orchName strin
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to set the location in order to deploy an application")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-	response.Body.Close()
 
 	// Deploy the application a4cApplicationDeployhRequestIn
 	appDeployBody, err := json.Marshal(
@@ -914,11 +958,11 @@ func (c *a4cClient) DeployApplication(appID string, envID string, orchName strin
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to deploy the application")
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
 
-	response.Body.Close()
 	return nil
 }
 
@@ -935,13 +979,13 @@ func (c *a4cClient) GetDeploymentList(appID string, envID string) ([]Deployment,
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to send request to get deployment list")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot read the body when getting deployment list")
@@ -989,12 +1033,11 @@ func (c *a4cClient) UndeployApplication(appID string, envID string) error {
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to undeploy A4C application")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-
-	response.Body.Close()
 
 	return nil
 }
@@ -1035,13 +1078,13 @@ func (c *a4cClient) GetDeploymentStatus(applicationID string, environmentID stri
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot send a request to get the deployment status")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot read the body when getting deployment status")
@@ -1097,13 +1140,13 @@ func (c *a4cClient) GetCurrentDeploymentID(applicationID string, environmentID s
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to retrieve the current deployment ID for app '%s'", applicationID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot read the body of the active deployment monitored request")
@@ -1171,12 +1214,12 @@ func (c *a4cClient) editA4CTopology(a4cCtx *TopologyEditorContext, a4cTopoEditor
 	if err != nil {
 		return errors.Wrap(err, "Unable to send the request edit an A4C topology")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return errors.Wrap(err, "Unable to read the content of a topology edition request")
@@ -1219,13 +1262,13 @@ func (c *a4cClient) getA4CTopologyID(appID string, envID string) (string, error)
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot send a request in order to find the topology for application '%s' in '%s' environment", appID, envID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot read the body of the topology get data for application '%s' in '%s' environment", appID, envID)
@@ -1265,13 +1308,13 @@ func (c *a4cClient) getA4CTopology(appID string, envID string) (*Topology, error
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot get the topology content for application '%s' in '%s' environment", appID, envID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot read the body of the topology get data for application '%s' in '%s' environment", appID, envID)
@@ -1322,13 +1365,13 @@ func (c *a4cClient) GetNodeStatus(applicationID string, environmentID string, no
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot send a request to get node status of node '%s'", nodeName)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot read the body of the node status for node '%s'", nodeName)
@@ -1369,13 +1412,13 @@ func (c *a4cClient) GetOutputProperties(applicationID string, environmentID stri
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot send a request to get output properties")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot read the body of the output properties")
@@ -1414,13 +1457,13 @@ func (c *a4cClient) GetAttributesValue(applicationID string, environmentID strin
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot send a request to get attributes value")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot read the body of the attributes value response '%s' in '%s' environment", applicationID, environmentID)
@@ -1764,11 +1807,10 @@ func (c *a4cClient) SaveA4CTopology(a4cCtx *TopologyEditorContext) error {
 	if err != nil {
 		return errors.Wrap(err, "Unable to send the request to save an A4C topology")
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-
-	response.Body.Close()
 
 	// After saving topology, get come back to a clear state.
 	a4cCtx.PreviousOperationID = ""
@@ -1798,13 +1840,13 @@ func (c *a4cClient) GetOrchestratorLocations(orchestratorID string) ([]Location,
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to send request to get orchestrator location for orchestrator '%s'", orchestratorID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to read the content of orchestrator locations request for orchestrator '%s'", orchestratorID)
@@ -1859,13 +1901,13 @@ func (c *a4cClient) GetOrchestratorIDbyName(orchestratorName string) (string, er
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to send request to get orchestrator ID from its name")
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot read the body of the search for '%s' orchestrator", orchestratorName)
@@ -1945,13 +1987,13 @@ func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID str
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot send a request to get number of logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, 0, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot read the body of the log query response '%s' in '%s' environment", applicationID, environmentID)
@@ -2008,13 +2050,13 @@ func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID str
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot send a request to get logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, 0, getError(response.Body)
 	}
 
 	responseBody, err = ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot read the body of the log query response '%s' in '%s' environment", applicationID, environmentID)
@@ -2106,13 +2148,13 @@ func (c *a4cClient) GetLastWorkflowExecution(applicationID string, environmentID
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to get workflow status of application '%s'", applicationID)
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, getError(response.Body)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot read the response from Alien4Cloud")
