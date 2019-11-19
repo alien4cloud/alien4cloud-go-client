@@ -54,8 +54,8 @@ type Client interface {
 	// Get matching locations where a given application can be deployed
 	GetLocationsMatching(topologyID string, envID string) ([]LocationMatch, error)
 	// Deploy the given application in the given environment using the given orchestrator
-    // if location is empty, the first matching location will be used
-    DeployApplication(appID string, envID string, location string) error
+	// if location is empty, the first matching location will be used
+	DeployApplication(appID string, envID string, location string) error
 	GetDeploymentList(appID string, envID string) ([]Deployment, error)
 	// Undeploy an application
 	UndeployApplication(appID string, envID string) error
@@ -81,7 +81,7 @@ type Client interface {
 	GetOrchestratorLocations(orchestratorID string) ([]Location, error)
 	// Return the Alien4Cloud orchestrator ID from a given orchestator name
 	GetOrchestratorIDbyName(orchestratorName string) (string, error)
-	GetLogsOfApplication(applicationID string, environmentID string, filters LogFilter) ([]Log, int, error)
+	GetLogsOfApplication(applicationID string, environmentID string, filters LogFilter, fromIndex int) ([]Log, int, error)
 	RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) error
 	GetLastWorkflowExecution(applicationID string, environmentID string) (*WorkflowExecution, error)
 }
@@ -1943,7 +1943,8 @@ func (c *a4cClient) GetOrchestratorIDbyName(orchestratorName string) (string, er
 ///////////////////////////////////////
 
 // GetLogsOfApplication Returns the logs of the application and environment filtered
-func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID string, filters LogFilter) ([]Log, int, error) {
+func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID string,
+	filters LogFilter, fromIndex int) ([]Log, int, error) {
 
 	deployments, err := c.GetDeploymentList(applicationID, environmentID)
 
@@ -1958,7 +1959,7 @@ func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID str
 	// The first step allow us to get the number of logs available. We will re-use the TotalResults parameters in order to generate the second request.
 
 	logsFilter := logsSearchRequest{
-		From: 0,
+		From: fromIndex,
 		Size: 1,
 		Filters: struct {
 			LogFilter
@@ -2017,7 +2018,7 @@ func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID str
 	// Then we send the resquest to get all the logs returned for this deployment.
 
 	logsFilter = logsSearchRequest{
-		From: 0,
+		From: fromIndex,
 		Size: res.Data.TotalResults,
 		Filters: struct {
 			LogFilter
