@@ -25,7 +25,7 @@ import (
 )
 
 // Command arguments
-var url, user, password, appName, appTemplate, orchestratorName, locationName string
+var url, user, password, appName string
 
 func init() {
 	// Initialize command arguments
