@@ -79,29 +79,25 @@ func main() {
 	done := false
 	log.Printf("Waiting for the end of deployment...")
 	var filters alien4cloud.LogFilter
+	var deploymentStatus string
 	logIndex := 0
 	for !done {
 		time.Sleep(5 * time.Second)
 
 		a4cLogs, nbLogs, err := client.GetLogsOfApplication(appID, envID, filters, logIndex)
-		log.Printf("Nb logs: %d\n", nbLogs)
 		if nbLogs > 0 {
-			previousIndex := logIndex
 			logIndex = logIndex + nbLogs
-			for idx := previousIndex; idx < logIndex; idx++ {
-				fmt.Printf("idx %d deployment %s pass dep %s level %s worflow %s execution %s node %s instance %s interface %s operation %s\n",
-					idx,
-					a4cLogs[idx].DeploymentID,
+			for idx := 0; idx < nbLogs; idx++ {
+				fmt.Printf("%s [%s][%s][%s][%s][%s][%s][%s] %s\n",
+					a4cLogs[idx].Timestamp.Format(time.RFC3339),
 					a4cLogs[idx].DeploymentPaaSID,
 					a4cLogs[idx].Level,
 					a4cLogs[idx].WorkflowID,
-					a4cLogs[idx].ExecutionID,
 					a4cLogs[idx].NodeID,
 					a4cLogs[idx].InstanceID,
 					a4cLogs[idx].InterfaceName,
-					a4cLogs[idx].OperationName)
-
-				fmt.Printf("%s\n", a4cLogs[idx].Content)
+					a4cLogs[idx].OperationName,
+					a4cLogs[idx].Content)
 			}
 		}
 
@@ -110,12 +106,34 @@ func main() {
 			log.Panic(err)
 		}
 
-		status = strings.ToLower(status)
-		done = (status == alien4cloud.ApplicationDeployed || status == alien4cloud.ApplicationError)
+		deploymentStatus = strings.ToLower(status)
+		done = (deploymentStatus == alien4cloud.ApplicationDeployed || deploymentStatus == alien4cloud.ApplicationError)
 		if done {
-			log.Printf("Deployment %s\n", status)
+			fmt.Printf("\nDeployment status: %s\n", status)
 			done = true
 			break
+		}
+	}
+
+	// On succesful deployment print output variable if any
+	if deploymentStatus == alien4cloud.ApplicationDeployed {
+		nodeAttrOutputs, err := client.GetOutputAttributes(appID, envID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		if len(nodeAttrOutputs) > 0 {
+			fmt.Println("\nOutputs:")
+			for nodeName, attrs := range nodeAttrOutputs {
+				attrValues, err := client.GetAttributesValue(appID, envID, nodeName, attrs)
+				if err != nil {
+					log.Panic(err)
+				}
+				fmt.Printf(" - %s\n", nodeName)
+				for k, v := range attrValues {
+					fmt.Printf("  * %s: %s\n", k, v)
+				}
+			}
 		}
 	}
 }

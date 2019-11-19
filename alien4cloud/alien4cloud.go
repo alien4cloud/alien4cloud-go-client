@@ -65,7 +65,7 @@ type Client interface {
 	GetCurrentDeploymentID(applicationID string, environmentID string) (string, error)
 	DisplayNodeStatus(applicationID string, environmentID string, nodeName string)
 	GetNodeStatus(applicationID string, environmentID string, nodeName string) (string, error)
-	GetOutputProperties(applicationID string, environmentID string) ([]string, error)
+	GetOutputAttributes(applicationID string, environmentID string) (map[string][]string, error)
 	GetAttributesValue(applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
 	// Update the property value (type string) of a component of an application
 	UpdateComponentProperty(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string) error
@@ -1399,8 +1399,8 @@ func (c *a4cClient) GetNodeStatus(applicationID string, environmentID string, no
 
 }
 
-// GetOutputProperties return the OutputAttributes for the given applicationID and environmentID
-func (c *a4cClient) GetOutputProperties(applicationID string, environmentID string) ([]string, error) {
+// GetOutputAttributes return the output attributes of nodes in the given applicationID and environmentID
+func (c *a4cClient) GetOutputAttributes(applicationID string, environmentID string) (map[string][]string, error) {
 
 	response, err := c.do(
 		"GET",
@@ -1432,15 +1432,7 @@ func (c *a4cClient) GetOutputProperties(applicationID string, environmentID stri
 		return nil, errors.Wrap(err, "Unable to unmarshal output properties")
 	}
 
-	returnedAttributes := make([]string, 0, 5)
-
-	for _, attributes := range outputPropertiesResponse.Data.Topology.OutputAttributes {
-		for _, attribute := range attributes {
-			returnedAttributes = append(returnedAttributes, attribute)
-		}
-	}
-
-	return returnedAttributes, nil
+	return outputPropertiesResponse.Data.Topology.OutputAttributes, nil
 
 }
 
