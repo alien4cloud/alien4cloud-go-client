@@ -375,12 +375,14 @@ func (l *Logs) UnmarshalJSON(b []byte) (err error) {
 
 // LogFilter represents rest api A4C logs
 type LogFilter struct {
-	Level      []string `json:"level,omitempty"`
-	WorkflowID []string `json:"workflowId,omitempty"`
+	Level       []string `json:"level,omitempty"`
+	WorkflowID  []string `json:"workflowId,omitempty"`
+	ExecutionID []string `json:"executionId,omitempty"`
 }
 
 // WorkflowExecution represents rest api workflow execution
 type WorkflowExecution struct {
+	ID                  string `json:"id"`
 	DisplayWorkflowName string `json:"displayWorkflowName"`
 	Status              string `json:"status"`
 }
