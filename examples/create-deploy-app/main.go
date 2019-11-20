@@ -29,7 +29,7 @@ var url, user, password, appName, appTemplate, locationName string
 
 func init() {
 	// Initialize command arguments
-	flag.StringVar(&url, "url", "http://localhost:8080", "Alien4Cloud URL")
+	flag.StringVar(&url, "url", "http://localhost:8088", "Alien4Cloud URL")
 	flag.StringVar(&user, "user", "admin", "User")
 	flag.StringVar(&password, "password", "changeme", "Password")
 	flag.StringVar(&appName, "app", "", "Name of the application to create")
