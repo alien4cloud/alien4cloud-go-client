@@ -24,7 +24,7 @@ and providing custom workflows **killWebServer**, **stopWebServer**, **startWebS
 
 Build this example:
 
-```
+```bash
 cd examples/create-deploy-app
 go build -o deploy
 ```
@@ -37,7 +37,7 @@ Now, run this example providing in arguments:
 * optionally, the name of the location where you want to deploy the application
   (by default, the first location suited for the deployment will be selected)
 
-```
+```bash
 ./deploy -url https://1.2.3.4:8088 \
          -user myuser \
          -password mypasswd \
