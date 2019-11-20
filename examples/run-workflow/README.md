@@ -1,6 +1,6 @@
 # Run a workflow
 
-This example program shows how the Alien4Cloud go client can be used to undeploy
+This example shows how the Alien4Cloud go client can be used to undeploy
 and delete an application.
 
 ## Prerequisites
@@ -9,14 +9,14 @@ An application has been deployed as described in [Create an deploy an applicatio
 
 ## Running this example
 
-Compile this example on your workstation:
+Build this example:
 
 ```
 cd examples/run-workflow
 go build -o run
 ```
 
-Now, run this application providing in arguments:
+Now, run this example providing in arguments:
 * the Alien4Cloud URL
 * credentials of the user who has deployed the application
 * the name of the application
