@@ -82,7 +82,7 @@ type Client interface {
 	// Return the Alien4Cloud orchestrator ID from a given orchestator name
 	GetOrchestratorIDbyName(orchestratorName string) (string, error)
 	GetLogsOfApplication(applicationID string, environmentID string, filters LogFilter, fromIndex int) ([]Log, int, error)
-	RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) error
+	RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) (*WorkflowExecution, error)
 	GetLastWorkflowExecution(applicationID string, environmentID string) (*WorkflowExecution, error)
 }
 
@@ -2070,7 +2070,7 @@ func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID str
 ////////////////////////////////////////////
 
 // RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
-func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) error {
+func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) (*WorkflowExecution, error) {
 
 	// The Alien4Cloud endpoint to start a workflow in Alien4Cloud is synchronous and for now, never finishes (Alien4Cloud 2.1.0-SM7).
 	go func() {
@@ -2101,19 +2101,19 @@ func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName s
 		}
 		// We try to get which workflow is executing. If its name is equal to the one we tried to launch, we consider, it's been launched.
 
-		a4cWorfklowExecution, err := c.GetLastWorkflowExecution(a4cAppID, a4cEnvID)
+		workflowExecution, err := c.GetLastWorkflowExecution(a4cAppID, a4cEnvID)
 
 		if err != nil {
-			return errors.Wrapf(err, "Unable to ensure the workflow '%s' has been executed on app '%s'", workflowName, a4cAppID)
+			return workflowExecution, errors.Wrapf(err, "Unable to ensure the workflow '%s' has been executed on app '%s'", workflowName, a4cAppID)
 		}
 
-		if a4cWorfklowExecution.DisplayWorkflowName == workflowName {
-			return nil
+		if workflowExecution.DisplayWorkflowName == workflowName {
+			return workflowExecution, err
 		}
 		time.Sleep(time.Second)
 	}
 
-	return errors.Errorf("Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
+	return nil, errors.Errorf("Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
 
 }
 
