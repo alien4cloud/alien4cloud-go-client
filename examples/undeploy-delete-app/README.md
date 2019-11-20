@@ -11,7 +11,7 @@ An application has been deployed as described in [Create an deploy an applicatio
 
 Build this example:
 
-```
+```bash
 cd examples/undeploy-delete-app
 go build -o undeploy
 ```
@@ -21,7 +21,7 @@ Now, run this example providing in arguments:
 * credentials of the user who has deployed the application
 * the name of the application to undeploy and detete
 
-```
+```bash
 ./undeploy -url https://1.2.3.4:8088 \
            -user myuser \
            -password mypasswd \
