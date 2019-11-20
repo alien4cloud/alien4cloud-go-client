@@ -188,7 +188,6 @@ func NewClient(address string, user string, password string, wfTimeout int, caFi
 	if useTLS {
 		if caFile == "" || skipSecure {
 			if skipSecure {
-				log.Printf("WARNING: Skipping TLS verification to connect to a4c API. It should not been used in production")
 				tlsConfig.InsecureSkipVerify = true
 			} else {
 				return nil, errors.Errorf("You must provide a certificate authority file in TLS verify mode")
