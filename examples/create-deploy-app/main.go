@@ -110,7 +110,6 @@ func main() {
 		done = (deploymentStatus == alien4cloud.ApplicationDeployed || deploymentStatus == alien4cloud.ApplicationError)
 		if done {
 			fmt.Printf("\nDeployment status: %s\n", status)
-			done = true
 			break
 		}
 	}

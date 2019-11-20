@@ -18,14 +18,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/alien4cloud/alien4cloud-go-client/v2/alien4cloud"
 )
 
+const workflowExecutionStartTimeoutInSeconds = 60
+
 // Command arguments
-var url, user, password, appName string
+var url, user, password, appName, workflow string
 
 func init() {
 	// Initialize command arguments
@@ -33,6 +34,7 @@ func init() {
 	flag.StringVar(&user, "user", "admin", "User")
 	flag.StringVar(&password, "password", "changeme", "Password")
 	flag.StringVar(&appName, "app", "", "Name of the application to create")
+	flag.StringVar(&workflow, "workflow", "", "Name of the workflow to run")
 }
 
 func main() {
@@ -40,12 +42,15 @@ func main() {
 	// Parsing command arguments
 	flag.Parse()
 
-	// Check required parameter
+	// Check required parameters
 	if appName == "" {
-		log.Panic("Mandatory argument 'app' missing (Name of the application to delete)")
+		log.Panic("Mandatory argument 'app' missing (Name of the application to create)")
+	}
+	if workflow == "" {
+		log.Panic("Mandatory argument 'workflow' missing (Name of the workflow to run)")
 	}
 
-	client, err := alien4cloud.NewClient(url, user, password, 0, "", true)
+	client, err := alien4cloud.NewClient(url, user, password, workflowExecutionStartTimeoutInSeconds, "", true)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -60,16 +65,18 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = client.UndeployApplication(appName, envID)
+	workflowExecution, err := client.RunWorkflow(appName, envID, workflow)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// Wait for the end of undeployment
+	// Wait for the end of deployment
 	done := false
-	log.Printf("Waiting for the end of undeployment...")
-	var filters alien4cloud.LogFilter
-	var deploymentStatus string
+	log.Printf("Waiting for the end of workflow execution...")
+	filters := alien4cloud.LogFilter{
+		ExecutionID: []string{workflowExecution.ID},
+	}
+	var workflowStatus string
 	logIndex := 0
 	for !done {
 		time.Sleep(5 * time.Second)
@@ -91,26 +98,15 @@ func main() {
 			}
 		}
 
-		status, err := client.GetDeploymentStatus(appName, envID)
+		workflowExecution, err = client.GetLastWorkflowExecution(appName, envID)
 		if err != nil {
 			log.Panic(err)
 		}
-
-		deploymentStatus = strings.ToLower(status)
-		done = (deploymentStatus == alien4cloud.ApplicationUndeployed || deploymentStatus == alien4cloud.ApplicationError)
+		workflowStatus = workflowExecution.Status
+		done = (workflowStatus == alien4cloud.WorkflowSucceeded || workflowStatus == alien4cloud.WorkflowFailed)
 		if done {
-			fmt.Printf("\nDeployment status: %s\n", status)
+			fmt.Printf("\nWorkflow status: %s\n", workflowStatus)
 			break
 		}
-	}
-
-	if deploymentStatus == alien4cloud.ApplicationUndeployed {
-		// Now that the application is undeployed, deleting it
-		err = client.DeleteApplication(appName)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		fmt.Printf("Application %s deleted\n", appName)
 	}
 }
