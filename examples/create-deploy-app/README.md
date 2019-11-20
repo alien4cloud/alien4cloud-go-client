@@ -1,6 +1,6 @@
 # Create an application from a template and deploy it on a location
 
-This example program shows how the Alien4Cloud go client can be used to:
+This example shows how the Alien4Cloud go client can be used to:
 * create an application from a template in Alien4Cloud catalog
 * deploy this application on a given location (if no location is specified, the first suited location is selected)
 * while the application is being deployed, display deployment logs
@@ -22,14 +22,14 @@ and providing custom workflows **killWebServer**, **stopWebServer**, **startWebS
 
 ## Running this example
 
-Compile this example on your workstation:
+Build this example:
 
 ```
 cd examples/create-deploy-app
 go build -o deploy
 ```
 
-Now, run this application providing in arguments:
+Now, run this example providing in arguments:
 * the Alien4Cloud URL
 * credentials of a user who has the **Application Manager** role 
 * the name of the application that will be create
