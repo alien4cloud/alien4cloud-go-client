@@ -11,7 +11,7 @@ An application has been deployed as described in [Create an deploy an applicatio
 
 Build this example:
 
-```
+```bash
 cd examples/run-workflow
 go build -o run
 ```
@@ -25,7 +25,7 @@ Now, run this example providing in arguments:
 For example, to re-use the Forge Web application sample deployed in [Create an deploy an application](../create-deploy-app/README.md) example,
 which is providing workflows **killWebServer**, **stopWebServer**, **startWebServer**, this would give :
 
-```
+```bash
 ./run -url https://1.2.3.4:8088 \
       -user myuser \
       -password mypasswd \
