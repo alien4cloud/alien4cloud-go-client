@@ -402,14 +402,6 @@ func (c *a4cClient) getTopologyTemplateIDByName(topologyName string) (string, er
 // Methods related to application management //
 ///////////////////////////////////////////////
 
-// Application represent fields of an application returned by A4C
-// TODO represent more fields of an application returned by A4C
-type Application struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Tags []Tag
-}
-
 // CreateAppli Create an application from a template and return its ID
 func (c *a4cClient) CreateAppli(appName string, appTemplate string) (string, error) {
 
@@ -753,12 +745,6 @@ func (c *a4cClient) DeleteApplication(appID string) error {
 ///////////////////////////////////////////////////
 // Methods related to application tag management //
 ///////////////////////////////////////////////////
-
-// Tag tag key/value json mapping
-type Tag struct {
-	Key   string `json:"name"`
-	Value string `json:"value"`
-}
 
 // SetTagToApplication set tag tagKey/tagValue to application
 func (c *a4cClient) SetTagToApplication(applicationID string, tagKey string, tagValue string) error {
@@ -1600,7 +1586,6 @@ func (c *a4cClient) UpdateCapabilityProperty(a4cCtx *TopologyEditorContext, comp
 }
 
 // AddNodeInA4CTopology Add a new node in the A4C topology
-// not used any more
 func (c *a4cClient) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, NodeTypeID string, nodeName string) error {
 
 	if a4cCtx == nil {
@@ -1651,7 +1636,6 @@ func (c *a4cClient) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, NodeType
 }
 
 // AddRelationship Add a new relationship in the A4C topology
-// not used any more
 func (c *a4cClient) AddRelationship(a4cCtx *TopologyEditorContext, sourceNodeName string, targetNodeName string, relType string) error {
 
 	if a4cCtx == nil {

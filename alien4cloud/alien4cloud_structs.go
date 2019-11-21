@@ -229,6 +229,19 @@ type ApplicationCreateRequest struct {
 	TopologyTemplateVersionID string `json:"topologyTemplateVersionId"`
 }
 
+// Tag tag key/value json mapping
+type Tag struct {
+	Key   string `json:"name"`
+	Value string `json:"value"`
+}
+
+// Application represent fields of an application returned by A4C
+type Application struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Tags []Tag
+}
+
 // TopologyEditor is the representation a topology template editor
 type TopologyEditor interface {
 	getNodeName() string

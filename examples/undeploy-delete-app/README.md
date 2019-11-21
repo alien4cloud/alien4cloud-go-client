@@ -1,4 +1,4 @@
-# Create an application from a template and deploy it on a location
+# Undeploy an application and delete it
 
 This example shows how the Alien4Cloud go client can be used to run workflows
 on a deployed application.

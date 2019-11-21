@@ -1,7 +1,7 @@
 # Run a workflow
 
-This example shows how the Alien4Cloud go client can be used to undeploy
-and delete an application.
+This example shows how the Alien4Cloud go client can be used to run a workflow on
+a deployed application.
 
 ## Prerequisites
 
