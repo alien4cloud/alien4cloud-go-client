@@ -221,7 +221,7 @@ func NewClient(address string, user string, password string, wfTimeout int, caFi
 		Client: &http.Client{
 			Transport:     tr,
 			CheckRedirect: nil,
-			Jar:           NewJar(),
+			Jar:           newJar(),
 			Timeout:       0},
 		baseURL:        a4cAPI,
 		username:       user,

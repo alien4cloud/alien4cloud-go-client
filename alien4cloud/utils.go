@@ -16,12 +16,13 @@ package alien4cloud
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 func getError(body io.ReadCloser) error {
@@ -42,15 +43,15 @@ func getError(body io.ReadCloser) error {
 // Implementation of http.CookieJar interface
 // ------------------------------------------
 
-// Jar structure used tO implement http.CookieJar interface
-type Jar struct {
+// jar structure used tO implement http.CookieJar interface
+type jar struct {
 	lk      sync.Mutex
 	cookies map[string][]*http.Cookie
 }
 
-// NewJar alloows to create a Jar structure and initialize cookies field
-func NewJar() *Jar {
-	jar := new(Jar)
+// newJar allows to create a Jar structure and initialize cookies field
+func newJar() *jar {
+	jar := new(jar)
 	jar.cookies = make(map[string][]*http.Cookie)
 	return jar
 }
@@ -58,7 +59,7 @@ func NewJar() *Jar {
 // SetCookies handles the receipt of the cookies in a reply for the
 // given URL.  It may or may not choose to save the cookies, depending
 // on the jar's policy and implementation.
-func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+func (jar *jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	jar.lk.Lock()
 	jar.cookies[u.Host] = cookies
 	jar.lk.Unlock()
@@ -67,6 +68,6 @@ func (jar *Jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // Cookies returns the cookies to send in a request for the given URL.
 // It is up to the implementation to honor the standard cookie use
 // restrictions such as in RFC 6265.
-func (jar *Jar) Cookies(u *url.URL) []*http.Cookie {
+func (jar *jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies[u.Host]
 }
