@@ -16,6 +16,7 @@ package alien4cloud
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -82,7 +83,7 @@ type Client interface {
 	// Return the Alien4Cloud orchestrator ID from a given orchestator name
 	GetOrchestratorIDbyName(orchestratorName string) (string, error)
 	GetLogsOfApplication(applicationID string, environmentID string, filters LogFilter, fromIndex int) ([]Log, int, error)
-	RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) (*WorkflowExecution, error)
+	RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string, submitTimeoutSeconds int) (*WorkflowExecution, error)
 	GetLastWorkflowExecution(applicationID string, environmentID string) (*WorkflowExecution, error)
 }
 
@@ -154,14 +155,13 @@ const (
 // a4Client holds properties of an a4c client
 type a4cClient struct {
 	*http.Client
-	baseURL        string
-	username       string
-	password       string
-	checkWfTimeout int
+	baseURL  string
+	username string
+	password string
 }
 
 // NewClient instanciates and returns Client
-func NewClient(address string, user string, password string, wfTimeout int, caFile string, skipSecure bool) (Client, error) {
+func NewClient(address string, user string, password string, caFile string, skipSecure bool) (Client, error) {
 	a4cAPI := strings.TrimRight(address, "/")
 
 	if m, _ := regexp.Match("^http[s]?://.*", []byte(a4cAPI)); !m {
@@ -223,20 +223,27 @@ func NewClient(address string, user string, password string, wfTimeout int, caFi
 			CheckRedirect: nil,
 			Jar:           newJar(),
 			Timeout:       0},
-		baseURL:        a4cAPI,
-		username:       user,
-		password:       password,
-		checkWfTimeout: wfTimeout,
+		baseURL:  a4cAPI,
+		username: user,
+		password: password,
 	}, nil
 }
 
-// do requests the alien4cloud rest api
-func (c *a4cClient) do(method string, path string, body []byte, headers []Header) (*http.Response, error) {
+// do requests the alien4cloud rest api with a Context that can be canceled
+func (c *a4cClient) doWithContext(ctx context.Context, method string, path string, body []byte, headers []Header) (*http.Response, error) {
 
 	bodyBytes := bytes.NewBuffer(body)
 
 	// Create the request
-	request, err := http.NewRequest(method, c.baseURL+path, bodyBytes)
+	var request *http.Request
+	var err error
+	if ctx == nil {
+		request, err = http.NewRequest(method, c.baseURL+path, bodyBytes)
+	} else {
+
+		request, err = http.NewRequestWithContext(ctx, method, c.baseURL+path, bodyBytes)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -278,6 +285,12 @@ func (c *a4cClient) do(method string, path string, body []byte, headers []Header
 	}
 
 	return response, nil
+}
+
+// do requests the alien4cloud rest api
+func (c *a4cClient) do(method string, path string, body []byte, headers []Header) (*http.Response, error) {
+
+	return c.doWithContext(nil, method, path, body, headers)
 }
 
 // Login login to alien4cloud
@@ -2053,11 +2066,13 @@ func (c *a4cClient) GetLogsOfApplication(applicationID string, environmentID str
 ////////////////////////////////////////////
 
 // RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
-func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string) (*WorkflowExecution, error) {
+func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string, submitTimeoutSeconds int) (*WorkflowExecution, error) {
 
 	// The Alien4Cloud endpoint to start a workflow in Alien4Cloud is synchronous and for now, never finishes (Alien4Cloud 2.1.0-SM7).
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	go func() {
-		response, err := c.do(
+		response, err := c.doWithContext(
+			ctx,
 			"POST",
 			fmt.Sprintf("%s/applications/%s/environments/%s/workflows/%s", a4CRestAPIPrefix, a4cAppID, a4cEnvID, workflowName),
 			nil,
@@ -2071,15 +2086,19 @@ func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName s
 		if err == nil {
 			response.Body.Close()
 		}
+		// Cancel context to avoid a context leak
+		if ctx.Err() != context.Canceled {
+			cancelFunc()
+		}
 	}()
 
 	t1 := time.Now()
 
-	for i := 0; i < c.checkWfTimeout; i++ {
+	for i := 0; i < submitTimeoutSeconds; i++ {
 
 		t2 := time.Now()
 		t3 := t2.Sub(t1)
-		if t3.Seconds() > float64(c.checkWfTimeout) {
+		if t3.Seconds() > float64(submitTimeoutSeconds) {
 			break
 		}
 		// We try to get which workflow is executing. If its name is equal to the one we tried to launch, we consider, it's been launched.
@@ -2096,6 +2115,11 @@ func (c *a4cClient) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName s
 		time.Sleep(time.Second)
 	}
 
+	// Timemout waiting for the workflow to be launched
+	// Canceling context to have the request in the go routine above canceled
+	if ctx.Err() != context.Canceled {
+		cancelFunc()
+	}
 	return nil, errors.Errorf("Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
 
 }
