@@ -60,12 +60,12 @@ func main() {
 		log.Panic(err)
 	}
 
-	envID, err := client.GetEnvironmentIDbyName(appName, alien4cloud.DefaultEnvironmentName)
+	envID, err := client.ApplicationService().GetEnvironmentIDbyName(appName, alien4cloud.DefaultEnvironmentName)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	workflowExecution, err := client.RunWorkflow(appName, envID, workflow, workflowExecutionStartTimeoutInSeconds)
+	workflowExecution, err := client.DeploymentService().RunWorkflow(appName, envID, workflow, workflowExecutionStartTimeoutInSeconds)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -81,7 +81,7 @@ func main() {
 	for !done {
 		time.Sleep(5 * time.Second)
 
-		a4cLogs, nbLogs, err := client.GetLogsOfApplication(appName, envID, filters, logIndex)
+		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(appName, envID, filters, logIndex)
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {
@@ -98,7 +98,7 @@ func main() {
 			}
 		}
 
-		workflowExecution, err = client.GetLastWorkflowExecution(appName, envID)
+		workflowExecution, err = client.DeploymentService().GetLastWorkflowExecution(appName, envID)
 		if err != nil {
 			log.Panic(err)
 		}

@@ -55,12 +55,12 @@ func main() {
 		log.Panic(err)
 	}
 
-	envID, err := client.GetEnvironmentIDbyName(appName, alien4cloud.DefaultEnvironmentName)
+	envID, err := client.ApplicationService().GetEnvironmentIDbyName(appName, alien4cloud.DefaultEnvironmentName)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	err = client.UndeployApplication(appName, envID)
+	err = client.DeploymentService().UndeployApplication(appName, envID)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -74,7 +74,7 @@ func main() {
 	for !done {
 		time.Sleep(5 * time.Second)
 
-		a4cLogs, nbLogs, err := client.GetLogsOfApplication(appName, envID, filters, logIndex)
+		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(appName, envID, filters, logIndex)
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {
@@ -91,7 +91,7 @@ func main() {
 			}
 		}
 
-		status, err := client.GetDeploymentStatus(appName, envID)
+		status, err := client.DeploymentService().GetDeploymentStatus(appName, envID)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -106,7 +106,7 @@ func main() {
 
 	if deploymentStatus == alien4cloud.ApplicationUndeployed {
 		// Now that the application is undeployed, deleting it
-		err = client.DeleteApplication(appName)
+		err = client.ApplicationService().DeleteApplication(appName)
 		if err != nil {
 			log.Panic(err)
 		}

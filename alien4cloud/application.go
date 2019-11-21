@@ -1,0 +1,452 @@
+// Copyright 2019 Bull S.A.S. Atos Technologies - Bull, Rue Jean Jaures, B.P.68, 78340, Les Clayes-sous-Bois, France.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package alien4cloud
+
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+
+	"github.com/pkg/errors"
+)
+
+// ApplicationService is the interface to the service managing Applications
+type ApplicationService interface {
+	// Creates an application from a template and return its ID
+	CreateAppli(appName string, appTemplate string) (string, error)
+	// Returns the Alien4Cloud environment ID from a given application ID and environment name
+	GetEnvironmentIDbyName(appID string, envName string) (string, error)
+	// Returns true if the application with the given ID exists
+	IsApplicationExist(applicationID string) (bool, error)
+	// Returns the application ID using the given filter
+	GetApplicationsID(filter string) ([]string, error)
+	// Returns the application with the given ID
+	GetApplicationByID(id string) (*Application, error)
+	// Deletes an application
+	DeleteApplication(appID string) error
+	// Sets a tag tagKey/tagValue for the application
+	SetTagToApplication(applicationID string, tagKey string, tagValue string) error
+	// Returns the tag value for the given application ID and tag key
+	GetApplicationTag(applicationID string, tagKey string) (string, error)
+}
+
+type applicationService struct {
+	client          restClient
+	topologyService *topologyService
+}
+
+// CreateAppli Create an application from a template and return its ID
+func (a *applicationService) CreateAppli(appName string, appTemplate string) (string, error) {
+
+	var appID string
+	topologyTemplateID, err := a.topologyService.GetTopologyTemplateIDByName(appTemplate)
+	if err != nil {
+		return appID, errors.Wrapf(err, "Unable to get the topology template id of template '%s'", appTemplate)
+	}
+
+	appliCreateJSON, err := json.Marshal(
+		ApplicationCreateRequest{
+			appName,
+			appName,
+			topologyTemplateID,
+		},
+	)
+
+	if err != nil {
+		return appID, errors.Wrap(err, "Cannot marshal an a4cAppliCreateRequestIn structure")
+	}
+
+	response, err := a.client.do(
+		"POST",
+		fmt.Sprintf("%s/applications", a4CRestAPIPrefix),
+		[]byte(string(appliCreateJSON)),
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return appID, errors.Wrap(err, "Cannot send a request to create an application")
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		return appID, getError(response.Body)
+	}
+
+	responseBody, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return appID, errors.Wrap(err, "Cannot read the body of the result of the application creation")
+	}
+
+	var appStruct struct {
+		Data string `json:"data"`
+	}
+
+	err = json.Unmarshal(responseBody, &appStruct)
+	if err != nil {
+		return appID, errors.Wrap(err, "Cannot unmarshal the reponse of the application creation")
+	}
+
+	appID = appStruct.Data
+
+	return appID, err
+}
+
+// GetEnvironmentIDbyName Return the Alien4Cloud environment ID from a given application ID and environment name
+func (a *applicationService) GetEnvironmentIDbyName(appID string, envName string) (string, error) {
+
+	envsSearchBody, err := json.Marshal(
+		searchRequest{
+			From: "0",
+			Size: "20",
+		},
+	)
+	if err != nil {
+		return "", errors.Wrap(err, "Cannot marshal a searchRequest structure")
+	}
+
+	response, err := a.client.do(
+		"POST",
+		fmt.Sprintf("%s/applications/%s/environments/search", a4CRestAPIPrefix, appID),
+		[]byte(string(envsSearchBody)),
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return "", errors.Wrap(err, "Unable to send request to get environment ID from its name of an application")
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return "", getError(response.Body)
+	}
+
+	responseBody, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return "", errors.Wrapf(err, "Cannot read the body of the search for '%s' environment", envName)
+	}
+
+	var res struct {
+		Data struct {
+			Types []string `json:"types"`
+			Data  []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"data"`
+		} `json:"data"`
+	}
+
+	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+		return "", errors.Wrapf(err, "Cannot convert the body of the search for '%s' environment", envName)
+	}
+
+	var envID string
+	for i := range res.Data.Data {
+		if res.Data.Data[i].Name == envName {
+			envID = res.Data.Data[i].ID
+			break
+		}
+	}
+
+	if envID == "" {
+		return envID, fmt.Errorf("'%s' environment for application '%s' not found", envName, appID)
+	}
+	return envID, nil
+}
+
+// IsApplicationExist Return true if the application with the given ID exists
+func (a *applicationService) IsApplicationExist(applicationID string) (bool, error) {
+
+	response, err := a.client.do(
+		"GET",
+		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, applicationID),
+		nil,
+		nil,
+	)
+
+	if err != nil {
+		return false, errors.Wrap(err, "Cannot send a request to ensure an application exists")
+	}
+	defer response.Body.Close()
+
+	switch response.StatusCode {
+
+	case http.StatusOK:
+		return true, nil
+
+	case http.StatusNotFound:
+		return false, nil
+
+	default:
+		return false, getError(response.Body)
+	}
+}
+
+// GetApplicationsID returns the application ID using the given filter
+func (a *applicationService) GetApplicationsID(filter string) ([]string, error) {
+
+	appsSearchBody, err := json.Marshal(
+		searchRequest{
+			filter,
+			"0",
+			"",
+		},
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot marshal an searchRequest structure")
+	}
+
+	response, err := a.client.do(
+		"POST",
+		fmt.Sprintf("%s/applications/search", a4CRestAPIPrefix),
+		[]byte(string(appsSearchBody)),
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
+	}
+	defer response.Body.Close()
+
+	switch response.StatusCode {
+	default:
+		return nil, getError(response.Body)
+
+	case http.StatusNotFound:
+		// No application with this filter have been found
+		return nil, nil
+
+	case http.StatusOK:
+
+		responseBody, err := ioutil.ReadAll(response.Body)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "Unable to read the response of A4C application list request")
+		}
+
+		var res struct {
+			Data struct {
+				Types []string `json:"types"`
+				Data  []struct {
+					ID          string `json:"id"`
+					ArchiveName string `json:"name"`
+				} `json:"data"`
+				TotalResults int `json:"totalResults"`
+			} `json:"data"`
+			Error Error `json:"error"`
+		}
+
+		if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+			return nil, errors.Wrap(err, "Unable to unmarshal the response of A4C application list request")
+		}
+
+		if res.Data.TotalResults <= 0 {
+			// No result have been returned
+			return nil, nil
+		}
+
+		applicationIds := []string{}
+
+		for _, application := range res.Data.Data {
+			applicationIds = append(applicationIds, application.ID)
+		}
+
+		return applicationIds, nil
+	}
+
+}
+
+// GetApplicationByID returns the application with the given ID
+func (a *applicationService) GetApplicationByID(id string) (*Application, error) {
+
+	appsSearchBody, err := json.Marshal(
+		searchRequest{
+			id,
+			"0",
+			"1",
+		},
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot marshal an searchRequest structure")
+	}
+
+	response, err := a.client.do(
+		"POST",
+		fmt.Sprintf("%s/applications/search", a4CRestAPIPrefix),
+		[]byte(string(appsSearchBody)),
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
+	}
+	defer response.Body.Close()
+
+	switch response.StatusCode {
+	default:
+		return nil, getError(response.Body)
+
+	case http.StatusNotFound:
+		// No application with this filter have been found
+		return nil, nil
+
+	case http.StatusOK:
+
+		responseBody, err := ioutil.ReadAll(response.Body)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "Unable to read the response of A4C application request")
+		}
+
+		var res struct {
+			Data struct {
+				Types        []string      `json:"types"`
+				Data         []Application `json:"data"`
+				TotalResults int           `json:"totalResults"`
+			} `json:"data"`
+			Error Error `json:"error"`
+		}
+
+		if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+			return nil, errors.Wrap(err, "Unable to unmarshal the response of A4C application request")
+		}
+
+		if res.Data.TotalResults <= 0 {
+			// No result have been returned
+			return nil, nil
+		}
+
+		if res.Data.Data != nil && len(res.Data.Data) > 0 {
+			return &res.Data.Data[0], nil
+		}
+		return nil, errors.New("Unable to access the response Data (nil or empty)")
+	}
+
+}
+
+// DeleteApplication delete an application
+func (a *applicationService) DeleteApplication(appID string) error {
+
+	response, err := a.client.do(
+		"DELETE",
+		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, appID),
+		nil,
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return errors.Wrap(err, "Unable to send request to delete A4C application")
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return getError(response.Body)
+	}
+
+	return nil
+}
+
+// SetTagToApplication set tag tagKey/tagValue to application
+func (a *applicationService) SetTagToApplication(applicationID string, tagKey string, tagValue string) error {
+
+	type tagToSet struct {
+		Key   string `json:"tagKey"`
+		Value string `json:"tagValue"`
+	}
+
+	tag, err := json.Marshal(tagToSet{
+		Key:   tagKey,
+		Value: tagValue,
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "Unable to marshal struct to set a tag")
+	}
+
+	response, err := a.client.do(
+		"POST",
+		fmt.Sprintf("%s/applications/%s/tags", a4CRestAPIPrefix, applicationID),
+		[]byte(string(tag)),
+		[]Header{
+			{
+				"Content-Type",
+				"application/json",
+			},
+		},
+	)
+
+	if err != nil {
+		return errors.Wrap(err, "Unable to send request to set a tag to an application")
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return getError(response.Body)
+	}
+
+	return nil
+}
+
+// GetApplicationTag returns the tag value for the given application ID and tag key
+func (a *applicationService) GetApplicationTag(applicationID string, tagKey string) (string, error) {
+
+	application, err := a.GetApplicationByID(applicationID)
+
+	if err != nil {
+		return "", errors.Wrap(err, "Unable to get application")
+	}
+
+	if application == nil {
+		return "", errors.New("Unable to get tag from an unknown application")
+	}
+
+	for _, tag := range application.Tags {
+		if tag.Key == tagKey {
+			return tag.Value, nil
+		}
+	}
+
+	// If we get here, no tags with such key has been found.
+	return "", fmt.Errorf("no tag with key '%s'", tagKey)
+}
