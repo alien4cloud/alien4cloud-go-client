@@ -45,7 +45,7 @@ func main() {
 		log.Panic("Mandatory argument 'app' missing (Name of the application to delete)")
 	}
 
-	client, err := alien4cloud.NewClient(url, user, password, 0, "", true)
+	client, err := alien4cloud.NewClient(url, user, password, "", true)
 	if err != nil {
 		log.Panic(err)
 	}

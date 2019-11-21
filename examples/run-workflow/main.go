@@ -50,7 +50,7 @@ func main() {
 		log.Panic("Mandatory argument 'workflow' missing (Name of the workflow to run)")
 	}
 
-	client, err := alien4cloud.NewClient(url, user, password, workflowExecutionStartTimeoutInSeconds, "", true)
+	client, err := alien4cloud.NewClient(url, user, password, "", true)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -65,7 +65,7 @@ func main() {
 		log.Panic(err)
 	}
 
-	workflowExecution, err := client.RunWorkflow(appName, envID, workflow)
+	workflowExecution, err := client.RunWorkflow(appName, envID, workflow, workflowExecutionStartTimeoutInSeconds)
 	if err != nil {
 		log.Panic(err)
 	}

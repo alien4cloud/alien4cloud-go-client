@@ -50,7 +50,7 @@ func main() {
 		log.Panic("Mandatory argument 'template' missing (Name of the topology template to use)")
 	}
 
-	client, err := alien4cloud.NewClient(url, user, password, 0, "", true)
+	client, err := alien4cloud.NewClient(url, user, password, "", true)
 	if err != nil {
 		log.Panic(err)
 	}
