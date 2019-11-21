@@ -101,16 +101,9 @@ type Error struct {
 
 // searchRequest is the representation of a request to search objects as tpologies, orchestrators in the A4C catalog
 type searchRequest struct {
-	Query string `json:"query"`
+	Query string `json:"query,omitempty"`
 	From  string `json:"from"`
 	Size  string `json:"size"`
-}
-
-// environmentsSearchRequest is the representation of a request to search environments of an application in the A4C catalog
-// TODO (HJo): Misnamed type
-type environmentsSearchRequest struct {
-	From string `json:"from"`
-	Size string `json:"size"`
 }
 
 // logsSearchRequest is the representation of a request to search logs of an application in the A4C catalog

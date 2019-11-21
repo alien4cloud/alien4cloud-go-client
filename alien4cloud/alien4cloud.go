@@ -469,13 +469,13 @@ func (c *a4cClient) CreateAppli(appName string, appTemplate string) (string, err
 func (c *a4cClient) GetEnvironmentIDbyName(appID string, envName string) (string, error) {
 
 	envsSearchBody, err := json.Marshal(
-		environmentsSearchRequest{
-			"0",
-			"20",
+		searchRequest{
+			From: "0",
+			Size: "20",
 		},
 	)
 	if err != nil {
-		return "", errors.Wrap(err, "Cannot marshal an environmentsSearchRequest structure")
+		return "", errors.Wrap(err, "Cannot marshal a searchRequest structure")
 	}
 
 	response, err := c.do(
