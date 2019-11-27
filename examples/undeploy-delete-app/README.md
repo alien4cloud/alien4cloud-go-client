@@ -23,9 +23,9 @@ Now, run this example providing in arguments:
 
 ```bash
 ./undeploy.test -url https://1.2.3.4:8088 \
-           -user myuser \
-           -password mypasswd \
-           -app myapp
+                -user myuser \
+                -password mypasswd \
+                -app myapp
 ```
 
 This will undeploy the application, print undeployment logs,
