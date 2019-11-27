@@ -27,10 +27,10 @@ which is providing workflows **killWebServer**, **stopWebServer**, **startWebSer
 
 ```bash
 ./run.test -url https://1.2.3.4:8088 \
-      -user myuser \
-      -password mypasswd \
-      -app myapp \
-      -worflow stopWebServer
+           -user myuser \
+           -password mypasswd \
+           -app myapp \
+           -worflow stopWebServer
 ```
 
 ## What's next
