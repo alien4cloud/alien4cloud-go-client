@@ -26,7 +26,7 @@ Build this example:
 
 ```bash
 cd examples/create-deploy-app
-go build -o deploy
+go build -o deploy.test
 ```
 
 Now, run this example providing in arguments:
@@ -38,7 +38,7 @@ Now, run this example providing in arguments:
   (by default, the first location suited for the deployment will be selected)
 
 ```bash
-./deploy -url https://1.2.3.4:8088 \
+./deploy.test -url https://1.2.3.4:8088 \
          -user myuser \
          -password mypasswd \
          -app myapp \
