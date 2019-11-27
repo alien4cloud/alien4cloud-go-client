@@ -13,7 +13,7 @@ Build this example:
 
 ```bash
 cd examples/undeploy-delete-app
-go build -o undeploy
+go build -o undeploy.test
 ```
 
 Now, run this example providing in arguments:
@@ -22,7 +22,7 @@ Now, run this example providing in arguments:
 * the name of the application to undeploy and detete
 
 ```bash
-./undeploy -url https://1.2.3.4:8088 \
+./undeploy.test -url https://1.2.3.4:8088 \
            -user myuser \
            -password mypasswd \
            -app myapp
