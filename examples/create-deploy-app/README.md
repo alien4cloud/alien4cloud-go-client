@@ -39,10 +39,10 @@ Now, run this example providing in arguments:
 
 ```bash
 ./deploy.test -url https://1.2.3.4:8088 \
-         -user myuser \
-         -password mypasswd \
-         -app myapp \
-         -template org.ystia.samples.topologies.welcome_basic
+              -user myuser \
+              -password mypasswd \
+              -app myapp \
+              -template org.ystia.samples.topologies.welcome_basic
 ```
 
 This will create the application, deploy it on a location, print deployment logs,
