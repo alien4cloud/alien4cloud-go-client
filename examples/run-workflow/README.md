@@ -13,7 +13,7 @@ Build this example:
 
 ```bash
 cd examples/run-workflow
-go build -o run
+go build -o run.test
 ```
 
 Now, run this example providing in arguments:
@@ -26,7 +26,7 @@ For example, to re-use the Forge Web application sample deployed in [Create an d
 which is providing workflows **killWebServer**, **stopWebServer**, **startWebServer**, this would give :
 
 ```bash
-./run -url https://1.2.3.4:8088 \
+./run.test -url https://1.2.3.4:8088 \
       -user myuser \
       -password mypasswd \
       -app myapp \
