@@ -18,8 +18,44 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
+
+// CSAR holds properties defining a Cloud Service ARchive
+type CSAR struct {
+	DefinitionHash          string           `json:"definitionHash,omitempty"`
+	DelegateID              string           `json:"delegateId,omitempty"`
+	DelegateType            string           `json:"delegateType,omitempty"`
+	Dependencies            []CSARDependency `json:"dependencies,omitempty"`
+	Description             string           `json:"description,omitempty"`
+	HasTopology             bool             `json:"hasTopology,omitempty"`
+	Hash                    string           `json:"hash,omitempty"`
+	ID                      string           `json:"id,omitempty"`
+	ImportDate              string           `json:"importDate,omitempty"`
+	ImportSource            string           `json:"importSource,omitempty"`
+	License                 string           `json:"license,omitempty"`
+	Name                    string           `json:"name,omitempty"`
+	NestedVersion           Version          `json:"nestedVersion,omitempty"`
+	NodeTypesCount          int              `json:"nodeTypesCount,omitempty"`
+	Tags                    []Tag            `json:"tags,omitempty"`
+	TemplateAuthor          string           `json:"templateAuthor,omitempty"`
+	ToscaDefaultNamespace   string           `json:"toscaDefaultNamespace,omitempty"`
+	ToscaDefinitionsVersion string           `json:"toscaDefinitionsVersion,omitempty"`
+	Version                 string           `json:"version,omitempty"`
+	Workspace               string           `json:"workspace,omitempty"`
+	YamlFilePath            string           `json:"yamlFilePath,omitempty"`
+}
+
+// Version represents a version with its decomposed fields
+type Version struct {
+	MajorVersion       int    `json:"majorVersion,omitempty"`
+	MinorVersion       int    `json:"minorVersion,omitempty"`
+	IncrementalVersion int    `json:"incrementalVersion,omitempty"`
+	BuildNumber        int    `json:"buildNumber,omitempty"`
+	Qualifier          string `json:"qualifier,omitempty"`
+}
 
 // CSARDependency holds properties defining a dependency on an archive
 type CSARDependency struct {
@@ -97,6 +133,57 @@ type Header struct {
 type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+// ParsingError is the representation of an A4C parsing error (typically used in CSAR parsing)
+type ParsingError struct {
+	ErrorLevel string     `json:"errorLevel,omitempty"`
+	ErrorCode  string     `json:"errorCode,omitempty"`
+	Problem    string     `json:"problem,omitempty"`
+	Context    string     `json:"context,omitempty"`
+	Note       string     `json:"note,omitempty"`
+	StartMark  SimpleMark `json:"startMark,omitempty"`
+	EndMark    SimpleMark `json:"endMark,omitempty"`
+}
+
+func (pe *ParsingError) String() string {
+	var b strings.Builder
+	b.WriteString(pe.ErrorLevel)
+	b.WriteString(": ")
+	b.WriteString(pe.ErrorCode)
+	b.WriteString(" ")
+	b.WriteString(pe.Problem)
+	if pe.Context != "" {
+		b.WriteString(". ")
+		b.WriteString(pe.Context)
+	}
+	if pe.Note != "" {
+		b.WriteString(" (")
+		b.WriteString(pe.Note)
+		b.WriteString(")")
+	}
+	if pe.StartMark.Line != 0 || pe.StartMark.Column != 0 {
+		b.WriteString(" StartMark[")
+		b.WriteString(strconv.Itoa(pe.StartMark.Line))
+		b.WriteString(", ")
+		b.WriteString(strconv.Itoa(pe.StartMark.Column))
+		b.WriteString("]")
+	}
+	if pe.EndMark.Line != 0 || pe.EndMark.Column != 0 {
+		b.WriteString(" EndMark[")
+		b.WriteString(strconv.Itoa(pe.EndMark.Line))
+		b.WriteString(", ")
+		b.WriteString(strconv.Itoa(pe.EndMark.Column))
+		b.WriteString("]")
+	}
+
+	return b.String()
+}
+
+// SimpleMark is a mark into a file (line+column)
+type SimpleMark struct {
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
 }
 
 // searchRequest is the representation of a request to search objects as tpologies, orchestrators in the A4C catalog
