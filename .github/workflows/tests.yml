@@ -1,0 +1,24 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Test
+      uses: docker://golang:1-stretch
+      with:
+        args: go test -count=1 -coverprofile coverage-sonar.out -coverpkg=./... ./...
+      env:
+        XDG_CACHE_HOME: /tmp/.cache
+        HOME: /tmp/buildhome
+    # - name: SonarCloud Scan
+    #   uses: sonarsource/sonarcloud-github-action@v1.1
+    #   # Do this only on push commit do not need to be re-analyzed on PR
+    #   if: github.event_name == 'push'
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
