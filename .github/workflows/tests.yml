@@ -11,7 +11,7 @@ jobs:
     - name: Test
       uses: docker://golang:1-stretch
       with:
-        args: go test -count=1 -coverprofile coverage-sonar.out -coverpkg=./... $(go list ./... | grep -v "/examples/")
+        args: "go test -count=1 -coverprofile coverage-sonar.out -coverpkg=./... $(go list ./... | grep -v '/examples/')"
       env:
         XDG_CACHE_HOME: /tmp/.cache
         HOME: /tmp/buildhome
