@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -201,7 +200,7 @@ func (c *a4cClient) Login() error {
 func (c *a4cClient) Logout() error {
 	request, err := http.NewRequest("POST", fmt.Sprintf("%s/logout", c.client.baseURL), nil)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 	request.Header.Add("Accept", "application/json")
 	request.Header.Set("Connection", "close")
@@ -320,7 +319,7 @@ func (r *restClient) login() error {
 	request, err := http.NewRequest("POST", fmt.Sprintf("%s/login", r.baseURL),
 		strings.NewReader(values.Encode()))
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 	request.Header.Add("Accept", "application/json")
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
