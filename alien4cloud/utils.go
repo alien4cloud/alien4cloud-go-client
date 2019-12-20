@@ -34,7 +34,10 @@ func getError(body io.ReadCloser) error {
 		Error Error `json:"error"`
 	}
 
-	json.Unmarshal(r, &res)
+	err := json.Unmarshal(r, &res)
+	if err != nil {
+		return errors.New("failed to read error message from Alien4Cloud")
+	}
 
 	return errors.New(res.Error.Message)
 }

@@ -42,6 +42,7 @@ type Client interface {
 	LogService() LogService
 	OrchestratorService() OrchestratorService
 	TopologyService() TopologyService
+	CatalogService() CatalogService
 }
 
 const (
@@ -109,6 +110,7 @@ type a4cClient struct {
 	logService          *logService
 	orchestratorService *orchestratorService
 	topologyService     *topologyService
+	catalogService      *catalogService
 }
 
 // NewClient instanciates and returns Client
@@ -179,6 +181,7 @@ func NewClient(address string, user string, password string, caFile string, skip
 		password: password,
 	}
 	topoService := topologyService{restClient}
+	catService := catalogService{restClient}
 	appService := applicationService{restClient, &topoService}
 	deployService := deploymentService{restClient, &appService, &topoService}
 	return &a4cClient{
@@ -188,6 +191,7 @@ func NewClient(address string, user string, password string, caFile string, skip
 		logService:          &logService{restClient, &deployService},
 		orchestratorService: &orchestratorService{restClient},
 		topologyService:     &topoService,
+		catalogService:      &catService,
 	}, nil
 }
 
@@ -244,6 +248,11 @@ func (c *a4cClient) OrchestratorService() OrchestratorService {
 // TopologyService retrieves the Topology Service
 func (c *a4cClient) TopologyService() TopologyService {
 	return c.topologyService
+}
+
+// CatalogService retrieves the Catalog Service
+func (c *a4cClient) CatalogService() CatalogService {
+	return c.catalogService
 }
 
 // do requests the alien4cloud rest api with a Context that can be canceled
