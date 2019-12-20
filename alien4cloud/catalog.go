@@ -106,7 +106,8 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != http.StatusCreated {
+	// Should be a created status but alien actually returns a OK status...
+	if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
 		return c, getError(response.Body)
 	}
 

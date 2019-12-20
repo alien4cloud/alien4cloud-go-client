@@ -33,7 +33,7 @@ type CSAR struct {
 	HasTopology             bool             `json:"hasTopology,omitempty"`
 	Hash                    string           `json:"hash,omitempty"`
 	ID                      string           `json:"id,omitempty"`
-	ImportDate              string           `json:"importDate,omitempty"`
+	ImportDate              int              `json:"importDate,omitempty"`
 	ImportSource            string           `json:"importSource,omitempty"`
 	License                 string           `json:"license,omitempty"`
 	Name                    string           `json:"name,omitempty"`
