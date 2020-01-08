@@ -15,6 +15,7 @@
 package alien4cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -43,6 +44,12 @@ type TopologyService interface {
 	AddRelationship(a4cCtx *TopologyEditorContext, sourceNodeName string, targetNodeName string, relType string) error
 	// Saves the topology context
 	SaveA4CTopology(a4cCtx *TopologyEditorContext) error
+	// Creates an empty workflow in the given topology
+	CreateWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error
+	// Deletes a workflow in the given topology
+	DeleteWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error
+	// Adds an activity to a workflow
+	AddWorkflowActivity(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string, activity *WorkflowActivity) error
 }
 
 type topologyService struct {
@@ -167,7 +174,7 @@ func (t *topologyService) GetTopologyTemplateIDByName(topologyName string) (stri
 }
 
 // editTopology Edit the topology of an application
-func (t *topologyService) editTopology(a4cCtx *TopologyEditorContext, a4cTopoEditorExecute TopologyEditor) error {
+func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEditorContext, a4cTopoEditorExecute TopologyEditor) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
@@ -187,7 +194,7 @@ func (t *topologyService) editTopology(a4cCtx *TopologyEditorContext, a4cTopoEdi
 		return errors.Wrap(err, "Cannot marshal an a4cTopoEditorExecuteRequestIn structure")
 	}
 
-	response, err := t.client.do(
+	response, err := t.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/editor/%s/execute", a4CRestAPIPrefix, a4cCtx.TopologyID),
 		[]byte(string(topoEditorExecuteBody)),
@@ -231,7 +238,9 @@ func (t *topologyService) editTopology(a4cCtx *TopologyEditorContext, a4cTopoEdi
 	}
 
 	lastOperationIndex := resExec.Data.LastOperationIndex
-	a4cCtx.PreviousOperationID = resExec.Data.Operations[lastOperationIndex].PreviousOperationID
+	if len(resExec.Data.Operations) > lastOperationIndex {
+		a4cCtx.PreviousOperationID = resExec.Data.Operations[lastOperationIndex].PreviousOperationID
+	}
 
 	return nil
 }
@@ -291,10 +300,12 @@ func (t *topologyService) UpdateComponentPropertyComplexType(a4cCtx *TopologyEdi
 	mapProp := propertyValue
 
 	topoEditorExecute := TopologyEditorUpdateNodePropertyComplexType{
-		TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
-			NodeName:            componentName,
-			PreviousOperationID: a4cCtx.PreviousOperationID,
-			OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+		TopologyEditorExecuteNodeRequest: TopologyEditorExecuteNodeRequest{
+			NodeName: componentName,
+			TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
+				PreviousOperationID: a4cCtx.PreviousOperationID,
+				OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+			},
 		},
 		PropertyName:  propertyName,
 		PropertyValue: mapProp,
@@ -307,7 +318,7 @@ func (t *topologyService) UpdateComponentPropertyComplexType(a4cCtx *TopologyEdi
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s\n", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
-	err := t.editTopology(a4cCtx, topoEditorExecute)
+	err := t.editTopology(nil, a4cCtx, topoEditorExecute)
 	if err != nil {
 		return errors.Wrapf(err, "UpdateComponentProperty : Unable to edit the topology of application '%s' and environment '%s'\n", a4cCtx.AppID, a4cCtx.EnvID)
 	}
@@ -323,10 +334,12 @@ func (t *topologyService) UpdateComponentProperty(a4cCtx *TopologyEditorContext,
 	}
 
 	topoEditorExecute := TopologyEditorUpdateNodeProperty{
-		TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
-			NodeName:            componentName,
-			PreviousOperationID: a4cCtx.PreviousOperationID,
-			OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+		TopologyEditorExecuteNodeRequest: TopologyEditorExecuteNodeRequest{
+			NodeName: componentName,
+			TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
+				PreviousOperationID: a4cCtx.PreviousOperationID,
+				OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+			},
 		},
 		PropertyName:  propertyName,
 		PropertyValue: propertyValue,
@@ -339,7 +352,7 @@ func (t *topologyService) UpdateComponentProperty(a4cCtx *TopologyEditorContext,
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s\n", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
-	err := t.editTopology(a4cCtx, topoEditorExecute)
+	err := t.editTopology(nil, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "UpdateComponentProperty : Unable to edit the topology of application '%s' and environment '%s'\n", a4cCtx.AppID, a4cCtx.EnvID)
@@ -356,10 +369,12 @@ func (t *topologyService) UpdateCapabilityProperty(a4cCtx *TopologyEditorContext
 	}
 
 	topoEditorExecute := TopologyEditorUpdateCapabilityProperty{
-		TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
-			NodeName:            componentName,
-			PreviousOperationID: a4cCtx.PreviousOperationID,
-			OperationType:       a4cUpdateCapabilityPropertyValueOperationJavaClassName,
+		TopologyEditorExecuteNodeRequest: TopologyEditorExecuteNodeRequest{
+			NodeName: componentName,
+			TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
+				PreviousOperationID: a4cCtx.PreviousOperationID,
+				OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+			},
 		},
 		PropertyName:   propertyName,
 		PropertyValue:  propertyValue,
@@ -374,7 +389,7 @@ func (t *topologyService) UpdateCapabilityProperty(a4cCtx *TopologyEditorContext
 		}
 	}
 
-	err := t.editTopology(a4cCtx, topoEditorExecute)
+	err := t.editTopology(nil, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)
@@ -409,10 +424,12 @@ func (t *topologyService) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, No
 	}
 
 	topoEditorExecute := TopologyEditorAddNode{
-		TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
-			NodeName:            nodeName,
-			PreviousOperationID: a4cCtx.PreviousOperationID,
-			OperationType:       a4cAddNodeOperationJavaClassName,
+		TopologyEditorExecuteNodeRequest: TopologyEditorExecuteNodeRequest{
+			NodeName: nodeName,
+			TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
+				PreviousOperationID: a4cCtx.PreviousOperationID,
+				OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+			},
 		},
 		NodeTypeID: NodeTypeID + ":" + nodeTypeVersion,
 	}
@@ -424,7 +441,7 @@ func (t *topologyService) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, No
 		}
 	}
 
-	err = t.editTopology(a4cCtx, topoEditorExecute)
+	err = t.editTopology(nil, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)
@@ -516,10 +533,12 @@ func (t *topologyService) AddRelationship(a4cCtx *TopologyEditorContext, sourceN
 	relationshipName := sourceNodeName + strings.Title(relTmp[len(relTmp)-1]) + strings.Title(targetNodeName)
 
 	topoEditorExecute := TopologyEditorAddRelationships{
-		TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
-			NodeName:            sourceNodeName,
-			OperationType:       a4cAddRelationshipOperationJavaClassName,
-			PreviousOperationID: a4cCtx.PreviousOperationID,
+		TopologyEditorExecuteNodeRequest: TopologyEditorExecuteNodeRequest{
+			NodeName: sourceNodeName,
+			TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
+				PreviousOperationID: a4cCtx.PreviousOperationID,
+				OperationType:       a4cUpdateNodePropertyValueOperationJavaClassName,
+			},
 		},
 		RelationshipName:       relationshipName,
 		RelationshipType:       relType,
@@ -537,7 +556,7 @@ func (t *topologyService) AddRelationship(a4cCtx *TopologyEditorContext, sourceN
 		}
 	}
 
-	err = t.editTopology(a4cCtx, topoEditorExecute)
+	err = t.editTopology(nil, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)

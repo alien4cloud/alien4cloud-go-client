@@ -324,21 +324,20 @@ type Application struct {
 
 // TopologyEditor is the representation a topology template editor
 type TopologyEditor interface {
-	getNodeName() string
 	getPreviousOperationID() string
 	getOperationType() string
 }
 
 // TopologyEditorExecuteRequest is the representation of a request to edit an application from a topology template
 type TopologyEditorExecuteRequest struct {
-	NodeName            string `json:"nodeName"`
 	PreviousOperationID string `json:"previousOperationId,omitempty"`
 	OperationType       string `json:"type"`
 }
 
-// getNodeName return the TopologyEditorExecuteRequest node name
-func (r TopologyEditorExecuteRequest) getNodeName() string {
-	return r.NodeName
+// TopologyEditorExecuteNodeRequest is the representation of a request to edit an application from a topology template for operation related to a node
+type TopologyEditorExecuteNodeRequest struct {
+	TopologyEditorExecuteRequest
+	NodeName string `json:"nodeName"`
 }
 
 // getPreviousOperationID return the TopologyEditorExecuteRequest previous operation ID
@@ -351,9 +350,15 @@ func (r TopologyEditorExecuteRequest) getOperationType() string {
 	return r.OperationType
 }
 
+// TopologyEditorWorkflow is the representation of a request to execute the topology editor
+type TopologyEditorWorkflow struct {
+	TopologyEditorExecuteRequest
+	WorkflowName string `json:"workflowName"`
+}
+
 // TopologyEditorUpdateNodeProperty is the representation of a request to execute the topology editor
 type TopologyEditorUpdateNodeProperty struct {
-	TopologyEditorExecuteRequest
+	TopologyEditorExecuteNodeRequest
 	PropertyName  string `json:"propertyName"`
 	PropertyValue string `json:"propertyValue"`
 	NodeTypeID    string `json:"indexedNodeTypeId"`
@@ -361,7 +366,7 @@ type TopologyEditorUpdateNodeProperty struct {
 
 // TopologyEditorUpdateNodePropertyComplexType is the representation of a request to update complex property of a topology
 type TopologyEditorUpdateNodePropertyComplexType struct {
-	TopologyEditorExecuteRequest
+	TopologyEditorExecuteNodeRequest
 	PropertyName  string                 `json:"propertyName"`
 	PropertyValue map[string]interface{} `json:"propertyValue"`
 	NodeTypeID    string                 `json:"indexedNodeTypeId"`
@@ -369,7 +374,7 @@ type TopologyEditorUpdateNodePropertyComplexType struct {
 
 // TopologyEditorUpdateCapabilityProperty is the representation of a request to update property of a topology
 type TopologyEditorUpdateCapabilityProperty struct {
-	TopologyEditorExecuteRequest
+	TopologyEditorExecuteNodeRequest
 	PropertyName   string `json:"propertyName"`
 	PropertyValue  string `json:"propertyValue"`
 	CapabilityName string `json:"capabilityName"`
@@ -377,13 +382,13 @@ type TopologyEditorUpdateCapabilityProperty struct {
 
 // TopologyEditorAddNode is the representation of a request to set node of a topology
 type TopologyEditorAddNode struct {
-	TopologyEditorExecuteRequest
+	TopologyEditorExecuteNodeRequest
 	NodeTypeID string `json:"indexedNodeTypeId"`
 }
 
 // TopologyEditorAddRelationships is the representation of a request to set relationships of a topology
 type TopologyEditorAddRelationships struct {
-	TopologyEditorExecuteRequest
+	TopologyEditorExecuteNodeRequest
 	RelationshipName       string `json:"relationshipName"`
 	RelationshipType       string `json:"relationshipType"`
 	RelationshipVersion    string `json:"relationshipVersion"`
