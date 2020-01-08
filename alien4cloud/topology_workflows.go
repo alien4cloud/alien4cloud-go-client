@@ -144,3 +144,44 @@ func (t *topologyService) AddWorkflowActivity(ctx context.Context, a4cCtx *Topol
 	err := t.editTopology(ctx, a4cCtx, req)
 	return errors.Wrapf(err, "Unable to add activity to workflow %q in topology of application %q and environment %q", workflowName, a4cCtx.AppID, a4cCtx.EnvID)
 }
+
+// CreateWorkflow creates an empty workflow in the given topology
+func (t *topologyService) CreateWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error {
+	return t.createOrDeleteWorkflow(ctx, a4cCtx, "org.alien4cloud.tosca.editor.operations.workflow.CreateWorkflowOperation", workflowName)
+}
+
+// AddRelationship Add a new relationship in the A4C topology
+func (t *topologyService) DeleteWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error {
+	return t.createOrDeleteWorkflow(ctx, a4cCtx, "org.alien4cloud.tosca.editor.operations.workflow.RemoveWorkflowOperation", workflowName)
+}
+
+func (t *topologyService) createOrDeleteWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, operationName, workflowName string) error {
+	var err error
+	if a4cCtx == nil {
+		return errors.New("Context object must be defined")
+	}
+
+	if a4cCtx.TopologyID == "" {
+		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		if err != nil {
+			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
+		}
+	}
+
+	topoEditorExecute := TopologyEditorWorkflow{
+		TopologyEditorExecuteRequest: TopologyEditorExecuteRequest{
+			PreviousOperationID: a4cCtx.PreviousOperationID,
+			OperationType:       operationName,
+		},
+		WorkflowName: workflowName,
+	}
+
+	err = t.editTopology(nil, a4cCtx, topoEditorExecute)
+
+	if err != nil {
+		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)
+	}
+
+	return nil
+
+}
