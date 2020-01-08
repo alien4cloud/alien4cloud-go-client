@@ -111,6 +111,7 @@ func (r addWorkflowActivityReq) getOperationType() string {
 	return r.Type
 }
 
+// AddWorkflowActivity adds an activity to a workflow
 func (t *topologyService) AddWorkflowActivity(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string, activity *WorkflowActivity) error {
 	req := addWorkflowActivityReq{
 		Type:               "org.alien4cloud.tosca.editor.operations.workflow.AddActivityOperation",

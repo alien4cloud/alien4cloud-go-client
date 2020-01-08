@@ -48,7 +48,6 @@ type TopologyService interface {
 	CreateWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error
 	// Deletes a workflow in the given topology
 	DeleteWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error
-
 	// Adds an activity to a workflow
 	AddWorkflowActivity(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string, activity *WorkflowActivity) error
 }
@@ -451,7 +450,7 @@ func (t *topologyService) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, No
 	return nil
 }
 
-// AddRelationship Add a new relationship in the A4C topology
+// CreateWorkflow creates an empty workflow in the given topology
 func (t *topologyService) CreateWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error {
 	return t.createOrDeleteWorkflow(ctx, a4cCtx, "org.alien4cloud.tosca.editor.operations.workflow.CreateWorkflowOperation", workflowName)
 }
@@ -461,7 +460,6 @@ func (t *topologyService) DeleteWorkflow(ctx context.Context, a4cCtx *TopologyEd
 	return t.createOrDeleteWorkflow(ctx, a4cCtx, "org.alien4cloud.tosca.editor.operations.workflow.RemoveWorkflowOperation", workflowName)
 }
 
-// AddRelationship Add a new relationship in the A4C topology
 func (t *topologyService) createOrDeleteWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, operationName, workflowName string) error {
 	var err error
 	if a4cCtx == nil {
