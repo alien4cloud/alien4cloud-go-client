@@ -162,7 +162,7 @@ func (t *topologyService) createOrDeleteWorkflow(ctx context.Context, a4cCtx *To
 	}
 
 	if a4cCtx.TopologyID == "" {
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
 		}
@@ -176,7 +176,7 @@ func (t *topologyService) createOrDeleteWorkflow(ctx context.Context, a4cCtx *To
 		WorkflowName: workflowName,
 	}
 
-	err = t.editTopology(nil, a4cCtx, topoEditorExecute)
+	err = t.editTopology(ctx, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)

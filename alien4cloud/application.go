@@ -15,6 +15,7 @@
 package alien4cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -26,21 +27,21 @@ import (
 // ApplicationService is the interface to the service managing Applications
 type ApplicationService interface {
 	// Creates an application from a template and return its ID
-	CreateAppli(appName string, appTemplate string) (string, error)
+	CreateAppli(ctx context.Context, appName string, appTemplate string) (string, error)
 	// Returns the Alien4Cloud environment ID from a given application ID and environment name
-	GetEnvironmentIDbyName(appID string, envName string) (string, error)
+	GetEnvironmentIDbyName(ctx context.Context, appID string, envName string) (string, error)
 	// Returns true if the application with the given ID exists
-	IsApplicationExist(applicationID string) (bool, error)
+	IsApplicationExist(ctx context.Context, applicationID string) (bool, error)
 	// Returns the application ID using the given filter
-	GetApplicationsID(filter string) ([]string, error)
+	GetApplicationsID(ctx context.Context, filter string) ([]string, error)
 	// Returns the application with the given ID
-	GetApplicationByID(id string) (*Application, error)
+	GetApplicationByID(ctx context.Context, id string) (*Application, error)
 	// Deletes an application
-	DeleteApplication(appID string) error
+	DeleteApplication(ctx context.Context, appID string) error
 	// Sets a tag tagKey/tagValue for the application
-	SetTagToApplication(applicationID string, tagKey string, tagValue string) error
+	SetTagToApplication(ctx context.Context, applicationID string, tagKey string, tagValue string) error
 	// Returns the tag value for the given application ID and tag key
-	GetApplicationTag(applicationID string, tagKey string) (string, error)
+	GetApplicationTag(ctx context.Context, applicationID string, tagKey string) (string, error)
 }
 
 type applicationService struct {
@@ -49,10 +50,10 @@ type applicationService struct {
 }
 
 // CreateAppli Create an application from a template and return its ID
-func (a *applicationService) CreateAppli(appName string, appTemplate string) (string, error) {
+func (a *applicationService) CreateAppli(ctx context.Context, appName string, appTemplate string) (string, error) {
 
 	var appID string
-	topologyTemplateID, err := a.topologyService.GetTopologyTemplateIDByName(appTemplate)
+	topologyTemplateID, err := a.topologyService.GetTopologyTemplateIDByName(ctx, appTemplate)
 	if err != nil {
 		return appID, errors.Wrapf(err, "Unable to get the topology template id of template '%s'", appTemplate)
 	}
@@ -69,16 +70,11 @@ func (a *applicationService) CreateAppli(appName string, appTemplate string) (st
 		return appID, errors.Wrap(err, "Cannot marshal an a4cAppliCreateRequestIn structure")
 	}
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications", a4CRestAPIPrefix),
 		[]byte(string(appliCreateJSON)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -111,7 +107,7 @@ func (a *applicationService) CreateAppli(appName string, appTemplate string) (st
 }
 
 // GetEnvironmentIDbyName Return the Alien4Cloud environment ID from a given application ID and environment name
-func (a *applicationService) GetEnvironmentIDbyName(appID string, envName string) (string, error) {
+func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID string, envName string) (string, error) {
 
 	envsSearchBody, err := json.Marshal(
 		searchRequest{
@@ -123,16 +119,11 @@ func (a *applicationService) GetEnvironmentIDbyName(appID string, envName string
 		return "", errors.Wrap(err, "Cannot marshal a searchRequest structure")
 	}
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/environments/search", a4CRestAPIPrefix, appID),
 		[]byte(string(envsSearchBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -179,9 +170,9 @@ func (a *applicationService) GetEnvironmentIDbyName(appID string, envName string
 }
 
 // IsApplicationExist Return true if the application with the given ID exists
-func (a *applicationService) IsApplicationExist(applicationID string) (bool, error) {
+func (a *applicationService) IsApplicationExist(ctx context.Context, applicationID string) (bool, error) {
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, applicationID),
 		nil,
@@ -207,7 +198,7 @@ func (a *applicationService) IsApplicationExist(applicationID string) (bool, err
 }
 
 // GetApplicationsID returns the application ID using the given filter
-func (a *applicationService) GetApplicationsID(filter string) ([]string, error) {
+func (a *applicationService) GetApplicationsID(ctx context.Context, filter string) ([]string, error) {
 
 	appsSearchBody, err := json.Marshal(
 		searchRequest{
@@ -221,16 +212,11 @@ func (a *applicationService) GetApplicationsID(filter string) ([]string, error) 
 		return nil, errors.Wrap(err, "Cannot marshal an searchRequest structure")
 	}
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/search", a4CRestAPIPrefix),
 		[]byte(string(appsSearchBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -287,7 +273,7 @@ func (a *applicationService) GetApplicationsID(filter string) ([]string, error) 
 }
 
 // GetApplicationByID returns the application with the given ID
-func (a *applicationService) GetApplicationByID(id string) (*Application, error) {
+func (a *applicationService) GetApplicationByID(ctx context.Context, id string) (*Application, error) {
 
 	appsSearchBody, err := json.Marshal(
 		searchRequest{
@@ -301,16 +287,11 @@ func (a *applicationService) GetApplicationByID(id string) (*Application, error)
 		return nil, errors.Wrap(err, "Cannot marshal an searchRequest structure")
 	}
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/search", a4CRestAPIPrefix),
 		[]byte(string(appsSearchBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -361,18 +342,13 @@ func (a *applicationService) GetApplicationByID(id string) (*Application, error)
 }
 
 // DeleteApplication delete an application
-func (a *applicationService) DeleteApplication(appID string) error {
+func (a *applicationService) DeleteApplication(ctx context.Context, appID string) error {
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"DELETE",
 		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, appID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -388,7 +364,7 @@ func (a *applicationService) DeleteApplication(appID string) error {
 }
 
 // SetTagToApplication set tag tagKey/tagValue to application
-func (a *applicationService) SetTagToApplication(applicationID string, tagKey string, tagValue string) error {
+func (a *applicationService) SetTagToApplication(ctx context.Context, applicationID string, tagKey string, tagValue string) error {
 
 	type tagToSet struct {
 		Key   string `json:"tagKey"`
@@ -404,16 +380,11 @@ func (a *applicationService) SetTagToApplication(applicationID string, tagKey st
 		return errors.Wrap(err, "Unable to marshal struct to set a tag")
 	}
 
-	response, err := a.client.do(
+	response, err := a.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/tags", a4CRestAPIPrefix, applicationID),
 		[]byte(string(tag)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -429,9 +400,9 @@ func (a *applicationService) SetTagToApplication(applicationID string, tagKey st
 }
 
 // GetApplicationTag returns the tag value for the given application ID and tag key
-func (a *applicationService) GetApplicationTag(applicationID string, tagKey string) (string, error) {
+func (a *applicationService) GetApplicationTag(ctx context.Context, applicationID string, tagKey string) (string, error) {
 
-	application, err := a.GetApplicationByID(applicationID)
+	application, err := a.GetApplicationByID(ctx, applicationID)
 
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to get application")
