@@ -50,6 +50,11 @@ type TopologyService interface {
 	DeleteWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error
 	// Adds an activity to a workflow
 	AddWorkflowActivity(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string, activity *WorkflowActivity) error
+
+	// Adds a policy to the topology
+	AddPolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName, policyTypeID string) error
+	// Deletes a policy from the topology
+	DeletePolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string) error
 }
 
 type topologyService struct {

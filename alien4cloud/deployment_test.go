@@ -89,20 +89,20 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case regexp.MustCompile(`.*/applications/err/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
-			w.Write([]byte(`{"data":{"deployment":{"id":"err"}}}`))
 			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"deployment":{"id":"err"}}}`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
-			w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
 			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
 			return
 		case regexp.MustCompile(`.*/deployments/err/status`).Match([]byte(r.URL.Path)):
-			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
 		case regexp.MustCompile(`.*/deployments/.*/status`).Match([]byte(r.URL.Path)):
-			w.Write([]byte(`{"data":"deployed"}`))
 			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":"deployed"}`))
 			return
 
 		}
