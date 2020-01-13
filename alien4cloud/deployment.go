@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -279,7 +278,7 @@ func (d *deploymentService) UndeployApplication(ctx context.Context, appID strin
 // WaitUntilStateIs Waits until the state of an Alien4Cloud application is one of the given statuses as parameter and returns the actual status.
 func (d *deploymentService) WaitUntilStateIs(ctx context.Context, appID string, envID string, statuses ...string) (string, error) {
 	if len(statuses) == 0 {
-		return "", errors.New("at least on status should be given")
+		return "", errors.New("at least one status should be given")
 	}
 	for {
 		a4cStatus, err := d.GetDeploymentStatus(ctx, appID, envID)
@@ -305,12 +304,16 @@ func (d *deploymentService) WaitUntilStateIs(ctx context.Context, appID string, 
 // GetDeploymentStatus returns current deployment status for the given applicationID and environmentID
 func (d *deploymentService) GetDeploymentStatus(ctx context.Context, applicationID string, environmentID string) (string, error) {
 
-	body := []byte(fmt.Sprintf(`["%s"]`, applicationID))
+	deploymentID, err := d.GetCurrentDeploymentID(ctx, applicationID, environmentID)
+	if err != nil {
+		return "", err
+	}
+
 	response, err := d.client.doWithContext(ctx,
-		"POST",
-		fmt.Sprintf("%s/applications/statuses", a4CRestAPIPrefix),
-		body,
-		[]Header{contentTypeAppJSONHeader},
+		"GET",
+		fmt.Sprintf("%s/deployments/%s/status", a4CRestAPIPrefix, deploymentID),
+		nil,
+		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -329,34 +332,20 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 	}
 
 	var statusResponse struct {
-		Data map[string]map[string]struct {
-			EnvironmentName   string
-			EnvironmentStatus string
-		} `json:"data"`
-		Error Error `json:"error"`
+		Data  string `json:"data"`
+		Error *Error `json:"error,omitempty"`
 	}
 
 	err = json.Unmarshal(responseBody, &statusResponse)
-
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to unmarshal the deployment status")
 	}
 
-	for _, application := range statusResponse.Data {
-		for _, environment := range application {
-			alienEnvironmentID, err := d.applicationService.GetEnvironmentIDbyName(ctx, applicationID, environment.EnvironmentName)
-
-			if err != nil {
-				return "", err
-			}
-
-			if alienEnvironmentID == environmentID {
-				return strings.ToLower(environment.EnvironmentStatus), nil
-			}
-		}
+	if statusResponse.Error != nil {
+		return "", errors.New(statusResponse.Error.Message)
 	}
 
-	return "", errors.New("unable to get the deployment status")
+	return statusResponse.Data, nil
 
 }
 
