@@ -29,12 +29,11 @@ func Test_topologyService_AddPolicy(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to unmarshal request body %+v", r)
 			}
-			assert.Equal(t, tepReq.topologyEditorExecuteRequest.OperationType, "org.alien4cloud.tosca.editor.operations.policies.AddPolicyOperation")
+			assert.Equal(t, tepReq.getOperationType(), "org.alien4cloud.tosca.editor.operations.policies.AddPolicyOperation")
 			assert.Assert(t, "" != tepReq.PolicyName)
 			assert.Assert(t, "" != tepReq.PolicyTypeID)
 			if tepReq.PolicyName == "policy1withid" {
-				assert.Assert(t, nil != tepReq.PreviousOperationID)
-				assert.Assert(t, "" != *tepReq.PreviousOperationID)
+				assert.Assert(t, "" != tepReq.getPreviousOperationID())
 			}
 			var resExec struct {
 				Data struct {
@@ -129,11 +128,10 @@ func Test_topologyService_DeletePolicy(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to unmarshal request body %+v", r)
 			}
-			assert.Equal(t, tepReq.topologyEditorExecuteRequest.OperationType, "org.alien4cloud.tosca.editor.operations.policies.DeletePolicyOperation")
+			assert.Equal(t, tepReq.getOperationType(), "org.alien4cloud.tosca.editor.operations.policies.DeletePolicyOperation")
 			assert.Assert(t, "" != tepReq.PolicyName)
 			if tepReq.PolicyName == "policy1withid" {
-				assert.Assert(t, nil != tepReq.PreviousOperationID)
-				assert.Assert(t, "" != *tepReq.PreviousOperationID)
+				assert.Assert(t, "" != tepReq.getPreviousOperationID())
 			}
 			var resExec struct {
 				Data struct {
