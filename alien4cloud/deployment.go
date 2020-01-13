@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -29,30 +28,32 @@ import (
 // DeploymentService is the interface to the service managing deployments
 type DeploymentService interface {
 	// Gets matching locations where a given application can be deployed
-	GetLocationsMatching(topologyID string, envID string) ([]LocationMatch, error)
-	// Deplosy the given application in the given environment using the given orchestrator
+	GetLocationsMatching(ctx context.Context, topologyID string, envID string) ([]LocationMatch, error)
+	// Deploys the given application in the given environment using the given orchestrator
 	// if location is empty, the first matching location will be used
-	DeployApplication(appID string, envID string, location string) error
+	DeployApplication(ctx context.Context, appID string, envID string, location string) error
+	// Updates an application with the latest topology version
+	UpdateApplication(ctx context.Context, appID, envID string) error
 	// Returns the deployment list for the given appID and envID
-	GetDeploymentList(appID string, envID string) ([]Deployment, error)
+	GetDeploymentList(ctx context.Context, appID string, envID string) ([]Deployment, error)
 	// Undeploys an application
-	UndeployApplication(appID string, envID string) error
-	// Waits until the state of an Alien4Cloud application is the one given as parameter.
-	WaintUntilStateIs(appID string, envID string, status string) error
+	UndeployApplication(ctx context.Context, appID string, envID string) error
+	// WaitUntilStateIs Waits until the state of an Alien4Cloud application is one of the given statuses as parameter and returns the actual status.
+	WaitUntilStateIs(ctx context.Context, appID string, envID string, statuses ...string) (string, error)
 	// Returns current deployment status for the given applicationID and environmentID
-	GetDeploymentStatus(applicationID string, environmentID string) (string, error)
+	GetDeploymentStatus(ctx context.Context, applicationID string, environmentID string) (string, error)
 	// Returns current deployment ID for the given applicationID and environmentID
-	GetCurrentDeploymentID(applicationID string, environmentID string) (string, error)
+	GetCurrentDeploymentID(ctx context.Context, applicationID string, environmentID string) (string, error)
 	// Returns the node status for the given applicationID and environmentID and nodeName
-	GetNodeStatus(applicationID string, environmentID string, nodeName string) (string, error)
+	GetNodeStatus(ctx context.Context, applicationID string, environmentID string, nodeName string) (string, error)
 	// Returns the output attributes of nodes in the given applicationID and environmentID
-	GetOutputAttributes(applicationID string, environmentID string) (map[string][]string, error)
+	GetOutputAttributes(ctx context.Context, applicationID string, environmentID string) (map[string][]string, error)
 	// Returns the application deployment attributes
-	GetAttributesValue(applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
+	GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
 	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID
-	RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string, submitTimeoutSeconds int) (*WorkflowExecution, error)
+	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error)
 	// Returns the workflow execution for the given applicationID and environmentID
-	GetLastWorkflowExecution(applicationID string, environmentID string) (*WorkflowExecution, error)
+	GetLastWorkflowExecution(ctx context.Context, applicationID string, environmentID string) (*WorkflowExecution, error)
 }
 
 type deploymentService struct {
@@ -62,17 +63,12 @@ type deploymentService struct {
 }
 
 // Get matching locations where a given application can be deployed
-func (d *deploymentService) GetLocationsMatching(topologyID string, envID string) ([]LocationMatch, error) {
-	response, err := d.client.do(
+func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID string, envID string) ([]LocationMatch, error) {
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/topologies/%s/locations?environmentId=%s", a4CRestAPIPrefix, topologyID, envID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -105,16 +101,16 @@ func (d *deploymentService) GetLocationsMatching(topologyID string, envID string
 
 // DeployApplication Deploy the given application in the given environment using the given orchestrator
 // if location is empty, the first matching location will be used
-func (d *deploymentService) DeployApplication(appID string, envID string, location string) error {
+func (d *deploymentService) DeployApplication(ctx context.Context, appID string, envID string, location string) error {
 
 	// get locations matching this application
-	topologyID, err := d.topologyService.GetTopologyID(appID, envID)
+	topologyID, err := d.topologyService.GetTopologyID(ctx, appID, envID)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to get application topology for app %s and env %s",
 			appID, envID)
 	}
 
-	locationsMatch, err := d.GetLocationsMatching(topologyID, envID)
+	locationsMatch, err := d.GetLocationsMatching(ctx, topologyID, envID)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get locations matching app %s env %s",
 			appID, envID)
@@ -146,16 +142,11 @@ func (d *deploymentService) DeployApplication(appID string, envID string, locati
 	if err != nil {
 		return errors.Wrap(err, "Cannot marshal an a4cLocationPoliciesPostRequestIn structure")
 	}
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology/location-policies", a4CRestAPIPrefix, appID, envID),
 		[]byte(string(body)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -174,16 +165,11 @@ func (d *deploymentService) DeployApplication(appID string, envID string, locati
 			appID,
 		},
 	)
-	response, err = d.client.do(
+	response, err = d.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/deployment", a4CRestAPIPrefix),
 		[]byte(string(appDeployBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -197,14 +183,35 @@ func (d *deploymentService) DeployApplication(appID string, envID string, locati
 	return nil
 }
 
-// GetDeploymentList returns the deployment list for the given appID and envID
-func (d *deploymentService) GetDeploymentList(appID string, envID string) ([]Deployment, error) {
+// UpdateApplication updates an application with the latest topology version
+func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID string) error {
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx, "POST",
+		fmt.Sprintf("%s/applications/%s/environments/%s/update-deployment", a4CRestAPIPrefix, appID, envID),
+		[]byte("{}"),
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+	)
+
+	if err != nil {
+return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return getError(response.Body)
+	}
+
+	return nil
+}
+
+// GetDeploymentList returns the deployment list for the given appID and envID
+func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string, envID string) ([]Deployment, error) {
+
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/deployments/search?environmentId=%s&from=0&query=", a4CRestAPIPrefix, envID),
 		nil,
-		[]Header{},
+		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -247,18 +254,13 @@ func (d *deploymentService) GetDeploymentList(appID string, envID string) ([]Dep
 }
 
 // UndeployApplication Undeploy an application
-func (d *deploymentService) UndeployApplication(appID string, envID string) error {
+func (d *deploymentService) UndeployApplication(ctx context.Context, appID string, envID string) error {
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"DELETE",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment", a4CRestAPIPrefix, appID, envID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -273,37 +275,45 @@ func (d *deploymentService) UndeployApplication(appID string, envID string) erro
 	return nil
 }
 
-// WaintUntilStateIs Wait until the state of an Alien4Cloud application is the one given as parameter.
-func (d *deploymentService) WaintUntilStateIs(appID string, envID string, status string) error {
+// WaitUntilStateIs Waits until the state of an Alien4Cloud application is one of the given statuses as parameter and returns the actual status.
+func (d *deploymentService) WaitUntilStateIs(ctx context.Context, appID string, envID string, statuses ...string) (string, error) {
+	if len(statuses) == 0 {
+		return "", errors.New("at least one status should be given")
+	}
 	for {
-		a4cStatus, err := d.GetDeploymentStatus(appID, envID)
+		a4cStatus, err := d.GetDeploymentStatus(ctx, appID, envID)
 
 		if err != nil {
-			return errors.Wrapf(err, "Unable to get status from application %s", appID)
+			return "", errors.Wrapf(err, "Unable to get status from application %s", appID)
 		}
 
-		if a4cStatus == status {
-			return nil
+		for _, status := range statuses {
+			if a4cStatus == status {
+				return a4cStatus, nil
+			}
 		}
 
-		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			return "", errors.Wrapf(ctx.Err(), "Unable to get status from application %s", appID)
+		case <-time.After(time.Second):
+		}
 	}
 }
 
 // GetDeploymentStatus returns current deployment status for the given applicationID and environmentID
-func (d *deploymentService) GetDeploymentStatus(applicationID string, environmentID string) (string, error) {
+func (d *deploymentService) GetDeploymentStatus(ctx context.Context, applicationID string, environmentID string) (string, error) {
 
-	body := []byte(fmt.Sprintf(`["%s"]`, applicationID))
-	response, err := d.client.do(
-		"POST",
-		fmt.Sprintf("%s/applications/statuses", a4CRestAPIPrefix),
-		body,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+	deploymentID, err := d.GetCurrentDeploymentID(ctx, applicationID, environmentID)
+	if err != nil {
+		return "", err
+	}
+
+	response, err := d.client.doWithContext(ctx,
+		"GET",
+		fmt.Sprintf("%s/deployments/%s/status", a4CRestAPIPrefix, deploymentID),
+		nil,
+		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -322,50 +332,31 @@ func (d *deploymentService) GetDeploymentStatus(applicationID string, environmen
 	}
 
 	var statusResponse struct {
-		Data map[string]map[string]struct {
-			EnvironmentName   string
-			EnvironmentStatus string
-		} `json:"data"`
-		Error Error `json:"error"`
+		Data  string `json:"data"`
+		Error *Error `json:"error,omitempty"`
 	}
 
 	err = json.Unmarshal(responseBody, &statusResponse)
-
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to unmarshal the deployment status")
 	}
 
-	for _, application := range statusResponse.Data {
-		for _, environment := range application {
-			alienEnvironmentID, err := d.applicationService.GetEnvironmentIDbyName(applicationID, environment.EnvironmentName)
-
-			if err != nil {
-				return "", err
-			}
-
-			if alienEnvironmentID == environmentID {
-				return strings.ToLower(environment.EnvironmentStatus), nil
-			}
-		}
+	if statusResponse.Error != nil {
+		return "", errors.New(statusResponse.Error.Message)
 	}
 
-	return "", errors.New("unable to get the deployment status")
+	return statusResponse.Data, nil
 
 }
 
 // GetCurrentDeploymentID returns current deployment ID for the given applicationID and environmentID
-func (d *deploymentService) GetCurrentDeploymentID(applicationID string, environmentID string) (string, error) {
+func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicationID string, environmentID string) (string, error) {
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/active-deployment-monitored", a4CRestAPIPrefix, applicationID, environmentID),
 		nil,
-		[]Header{
-			{
-				"Accept",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -402,9 +393,9 @@ func (d *deploymentService) GetCurrentDeploymentID(applicationID string, environ
 }
 
 // GetNodeStatus returns the node status for the given applicationID and environmentID and nodeName
-func (d *deploymentService) GetNodeStatus(applicationID string, environmentID string, nodeName string) (string, error) {
+func (d *deploymentService) GetNodeStatus(ctx context.Context, applicationID string, environmentID string, nodeName string) (string, error) {
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment/informations", a4CRestAPIPrefix, applicationID, environmentID),
 		nil,
@@ -449,9 +440,9 @@ func (d *deploymentService) GetNodeStatus(applicationID string, environmentID st
 }
 
 // GetOutputAttributes return the output attributes of nodes in the given applicationID and environmentID
-func (d *deploymentService) GetOutputAttributes(applicationID string, environmentID string) (map[string][]string, error) {
+func (d *deploymentService) GetOutputAttributes(ctx context.Context, applicationID string, environmentID string) (map[string][]string, error) {
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/runtime/%s/environment/%s/topology", a4CRestAPIPrefix, applicationID, environmentID),
 		nil,
@@ -486,9 +477,9 @@ func (d *deploymentService) GetOutputAttributes(applicationID string, environmen
 }
 
 // GetAttributesValue returns the application deployment attributes
-func (d *deploymentService) GetAttributesValue(applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error) {
+func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error) {
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment/informations", a4CRestAPIPrefix, applicationID, environmentID),
 		nil,
@@ -548,44 +539,28 @@ func (d *deploymentService) GetAttributesValue(applicationID string, environment
 }
 
 // RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
-func (d *deploymentService) RunWorkflow(a4cAppID string, a4cEnvID string, workflowName string, submitTimeoutSeconds int) (*WorkflowExecution, error) {
+func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error) {
 
 	// The Alien4Cloud endpoint to start a workflow in Alien4Cloud is synchronous and for now, never finishes (Alien4Cloud 2.1.0-SM7).
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
+	defer cancelFunc()
+
 	go func() {
 		response, err := d.client.doWithContext(
 			ctx,
 			"POST",
 			fmt.Sprintf("%s/applications/%s/environments/%s/workflows/%s", a4CRestAPIPrefix, a4cAppID, a4cEnvID, workflowName),
 			nil,
-			[]Header{
-				{
-					"Accept",
-					"application/json",
-				},
-			},
+			[]Header{acceptAppJSONHeader},
 		)
 		if err == nil {
 			response.Body.Close()
 		}
-		// Cancel context to avoid a context leak
-		if ctx.Err() != context.Canceled {
-			cancelFunc()
-		}
 	}()
 
-	t1 := time.Now()
-
-	for i := 0; i < submitTimeoutSeconds; i++ {
-
-		t2 := time.Now()
-		t3 := t2.Sub(t1)
-		if t3.Seconds() > float64(submitTimeoutSeconds) {
-			break
-		}
+	for {
 		// We try to get which workflow is executing. If its name is equal to the one we tried to launch, we consider, it's been launched.
-
-		workflowExecution, err := d.GetLastWorkflowExecution(a4cAppID, a4cEnvID)
+		workflowExecution, err := d.GetLastWorkflowExecution(ctx, a4cAppID, a4cEnvID)
 
 		if err != nil {
 			return workflowExecution, errors.Wrapf(err, "Unable to ensure the workflow '%s' has been executed on app '%s'", workflowName, a4cAppID)
@@ -594,37 +569,33 @@ func (d *deploymentService) RunWorkflow(a4cAppID string, a4cEnvID string, workfl
 		if workflowExecution.DisplayWorkflowName == workflowName {
 			return workflowExecution, err
 		}
-		time.Sleep(time.Second)
+
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrapf(ctx.Err(), "Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
+		case <-time.After(time.Second):
+		}
 	}
 
-	// Timemout waiting for the workflow to be launched
-	// Canceling context to have the request in the go routine above canceled
-	if ctx.Err() != context.Canceled {
-		cancelFunc()
-	}
+	// Timeout waiting for the workflow to be launched
 	return nil, errors.Errorf("Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
 
 }
 
 // GetLastWorkflowExecution return a4c workflow execution for the given applicationID and environmentID
-func (d *deploymentService) GetLastWorkflowExecution(applicationID string, environmentID string) (*WorkflowExecution, error) {
+func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applicationID string, environmentID string) (*WorkflowExecution, error) {
 
-	deploymentID, err := d.GetCurrentDeploymentID(applicationID, environmentID)
+	deploymentID, err := d.GetCurrentDeploymentID(ctx, applicationID, environmentID)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to get current deployment ID")
 	}
 
-	response, err := d.client.do(
+	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/workflow_execution/%s", a4CRestAPIPrefix, deploymentID),
 		nil,
-		[]Header{
-			{
-				"Accept",
-				"application/json",
-			},
-		},
+		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {

@@ -34,8 +34,8 @@ import (
 
 // Client is the client interface to Alien4cloud
 type Client interface {
-	Login() error
-	Logout() error
+	Login(ctx context.Context) error
+	Logout(ctx context.Context) error
 
 	ApplicationService() ApplicationService
 	DeploymentService() DeploymentService
@@ -59,6 +59,12 @@ const (
 	ApplicationUndeployed = "undeployed"
 	// ApplicationError a4c status
 	ApplicationError = "failure"
+	// ApplicationUpdateError a4c status
+	ApplicationUpdateError = "update_failure"
+	// ApplicationUpdated a4c status
+	ApplicationUpdated = "updated"
+	// ApplicationUpdateInProgress a4c status
+	ApplicationUpdateInProgress = "update_in_progress"
 
 	// WorkflowSucceeded workflow a4c status
 	WorkflowSucceeded = "SUCCEEDED"
@@ -196,13 +202,13 @@ func NewClient(address string, user string, password string, caFile string, skip
 }
 
 // Login login to alien4cloud
-func (c *a4cClient) Login() error {
-	return c.client.login()
+func (c *a4cClient) Login(ctx context.Context) error {
+	return c.client.login(ctx)
 }
 
 // Logout log out from alien4cloud
-func (c *a4cClient) Logout() error {
-	request, err := http.NewRequest("POST", fmt.Sprintf("%s/logout", c.client.baseURL), nil)
+func (c *a4cClient) Logout(ctx context.Context) error {
+	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/logout", c.client.baseURL), nil)
 	if err != nil {
 		return err
 	}
@@ -260,15 +266,7 @@ func (r *restClient) doWithContext(ctx context.Context, method string, path stri
 
 	bodyBytes := bytes.NewBuffer(body)
 
-	// Create the request
-	var request *http.Request
-	var err error
-	if ctx == nil {
-		request, err = http.NewRequest(method, r.baseURL+path, bodyBytes)
-	} else {
-
-		request, err = http.NewRequestWithContext(ctx, method, r.baseURL+path, bodyBytes)
-	}
+	request, err := http.NewRequestWithContext(ctx, method, r.baseURL+path, bodyBytes)
 
 	if err != nil {
 		return nil, err
@@ -286,7 +284,7 @@ func (r *restClient) doWithContext(ctx context.Context, method string, path stri
 
 	// Cookie can potentially be expired. If we are unauthorized to send a request, we should try to login again.
 	if response.StatusCode == http.StatusForbidden {
-		err = r.login()
+		err = r.login(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -313,19 +311,13 @@ func (r *restClient) doWithContext(ctx context.Context, method string, path stri
 	return response, nil
 }
 
-// do requests the alien4cloud rest api
-func (r *restClient) do(method string, path string, body []byte, headers []Header) (*http.Response, error) {
-
-	return r.doWithContext(nil, method, path, body, headers)
-}
-
 // login to alien4cloud
-func (r *restClient) login() error {
+func (r *restClient) login(ctx context.Context) error {
 	values := url.Values{}
 	values.Set("username", r.username)
 	values.Set("password", r.password)
 	values.Set("submit", "Login")
-	request, err := http.NewRequest("POST", fmt.Sprintf("%s/login", r.baseURL),
+	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/login", r.baseURL),
 		strings.NewReader(values.Encode()))
 	if err != nil {
 		return err

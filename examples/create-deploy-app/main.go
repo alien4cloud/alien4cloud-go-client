@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -55,22 +56,26 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = client.Login()
+	// Timeout after one hour (this is optional you can use a context without timeout or cancelation)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
+	defer cancel()
+
+	err = client.Login(ctx)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	appID, err := client.ApplicationService().CreateAppli(appName, appTemplate)
+	appID, err := client.ApplicationService().CreateAppli(ctx, appName, appTemplate)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	envID, err := client.ApplicationService().GetEnvironmentIDbyName(appID, alien4cloud.DefaultEnvironmentName)
+	envID, err := client.ApplicationService().GetEnvironmentIDbyName(ctx, appID, alien4cloud.DefaultEnvironmentName)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	err = client.DeploymentService().DeployApplication(appID, envID, locationName)
+	err = client.DeploymentService().DeployApplication(ctx, appID, envID, locationName)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -84,7 +89,7 @@ func main() {
 	for !done {
 		time.Sleep(5 * time.Second)
 
-		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(appID, envID, filters, logIndex)
+		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(ctx, appID, envID, filters, logIndex)
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {
@@ -101,7 +106,7 @@ func main() {
 			}
 		}
 
-		status, err := client.DeploymentService().GetDeploymentStatus(appID, envID)
+		status, err := client.DeploymentService().GetDeploymentStatus(ctx, appID, envID)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -116,7 +121,7 @@ func main() {
 
 	// On succesful deployment print output variable if any
 	if deploymentStatus == alien4cloud.ApplicationDeployed {
-		nodeAttrOutputs, err := client.DeploymentService().GetOutputAttributes(appID, envID)
+		nodeAttrOutputs, err := client.DeploymentService().GetOutputAttributes(ctx, appID, envID)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -124,7 +129,7 @@ func main() {
 		if len(nodeAttrOutputs) > 0 {
 			fmt.Println("\nOutputs:")
 			for nodeName, attrs := range nodeAttrOutputs {
-				attrValues, err := client.DeploymentService().GetAttributesValue(appID, envID, nodeName, attrs)
+				attrValues, err := client.DeploymentService().GetAttributesValue(ctx, appID, envID, nodeName, attrs)
 				if err != nil {
 					log.Panic(err)
 				}

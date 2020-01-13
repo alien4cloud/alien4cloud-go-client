@@ -15,6 +15,7 @@
 package alien4cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -26,7 +27,7 @@ import (
 // LogService is the interface to the service mamaging logs
 type LogService interface {
 	// Returns the logs of the application and environment filtered
-	GetLogsOfApplication(applicationID string, environmentID string, filters LogFilter, fromIndex int) ([]Log, int, error)
+	GetLogsOfApplication(ctx context.Context, applicationID string, environmentID string, filters LogFilter, fromIndex int) ([]Log, int, error)
 }
 
 type logService struct {
@@ -35,10 +36,10 @@ type logService struct {
 }
 
 // GetLogsOfApplication returns the logs of the application and environment filtered
-func (l *logService) GetLogsOfApplication(applicationID string, environmentID string,
+func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID string, environmentID string,
 	filters LogFilter, fromIndex int) ([]Log, int, error) {
 
-	deployments, err := l.deploymentService.GetDeploymentList(applicationID, environmentID)
+	deployments, err := l.deploymentService.GetDeploymentList(ctx, applicationID, environmentID)
 
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unable to get deployment list for app '%s' and env '%s'", applicationID, environmentID)
@@ -65,16 +66,11 @@ func (l *logService) GetLogsOfApplication(applicationID string, environmentID st
 		return nil, 0, errors.Wrap(err, "Unable to marshal log filters in order to get the number of logs available for this deployment.")
 	}
 
-	response, err := l.client.do(
+	response, err := l.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/deployment/logs/search", a4CRestAPIPrefix),
 		body,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -128,16 +124,11 @@ func (l *logService) GetLogsOfApplication(applicationID string, environmentID st
 		return nil, 0, errors.Wrap(err, "Unable to marshal log filters to get logs for the deployment.")
 	}
 
-	response, err = l.client.do(
+	response, err = l.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/deployment/logs/search", a4CRestAPIPrefix),
 		body,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {

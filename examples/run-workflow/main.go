@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -23,7 +24,7 @@ import (
 	"github.com/alien4cloud/alien4cloud-go-client/v2/alien4cloud"
 )
 
-const workflowExecutionStartTimeoutInSeconds = 60
+const workflowExecutionStartTimeout = 60 * time.Second
 
 // Command arguments
 var url, user, password, appName, workflow string
@@ -55,17 +56,21 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = client.Login()
+	// Timeout after one hour (this is optional you can use a context without timeout or cancelation)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
+	defer cancel()
+
+	err = client.Login(ctx)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	envID, err := client.ApplicationService().GetEnvironmentIDbyName(appName, alien4cloud.DefaultEnvironmentName)
+	envID, err := client.ApplicationService().GetEnvironmentIDbyName(ctx, appName, alien4cloud.DefaultEnvironmentName)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	workflowExecution, err := client.DeploymentService().RunWorkflow(appName, envID, workflow, workflowExecutionStartTimeoutInSeconds)
+	workflowExecution, err := client.DeploymentService().RunWorkflow(ctx, appName, envID, workflow, workflowExecutionStartTimeout)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -81,7 +86,7 @@ func main() {
 	for !done {
 		time.Sleep(5 * time.Second)
 
-		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(appName, envID, filters, logIndex)
+		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(ctx, appName, envID, filters, logIndex)
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {
@@ -98,7 +103,7 @@ func main() {
 			}
 		}
 
-		workflowExecution, err = client.DeploymentService().GetLastWorkflowExecution(appName, envID)
+		workflowExecution, err = client.DeploymentService().GetLastWorkflowExecution(ctx, appName, envID)
 		if err != nil {
 			log.Panic(err)
 		}

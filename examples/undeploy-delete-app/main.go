@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -50,17 +51,21 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = client.Login()
+	// Timeout after one hour (this is optional you can use a context without timeout or cancelation)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
+	defer cancel()
+
+	err = client.Login(ctx)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	envID, err := client.ApplicationService().GetEnvironmentIDbyName(appName, alien4cloud.DefaultEnvironmentName)
+	envID, err := client.ApplicationService().GetEnvironmentIDbyName(ctx, appName, alien4cloud.DefaultEnvironmentName)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	err = client.DeploymentService().UndeployApplication(appName, envID)
+	err = client.DeploymentService().UndeployApplication(ctx, appName, envID)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -74,7 +79,7 @@ func main() {
 	for !done {
 		time.Sleep(5 * time.Second)
 
-		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(appName, envID, filters, logIndex)
+		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(ctx, appName, envID, filters, logIndex)
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {
@@ -91,7 +96,7 @@ func main() {
 			}
 		}
 
-		status, err := client.DeploymentService().GetDeploymentStatus(appName, envID)
+		status, err := client.DeploymentService().GetDeploymentStatus(ctx, appName, envID)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -106,7 +111,7 @@ func main() {
 
 	if deploymentStatus == alien4cloud.ApplicationUndeployed {
 		// Now that the application is undeployed, deleting it
-		err = client.ApplicationService().DeleteApplication(appName)
+		err = client.ApplicationService().DeleteApplication(ctx, appName)
 		if err != nil {
 			log.Panic(err)
 		}

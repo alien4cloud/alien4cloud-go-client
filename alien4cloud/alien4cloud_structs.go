@@ -129,6 +129,9 @@ type Header struct {
 	Value string
 }
 
+var contentTypeAppJSONHeader = Header{"Content-Type", "application/json"}
+var acceptAppJSONHeader = Header{"Accept", "application/json"}
+
 // Error is the representation of an A4C error
 type Error struct {
 	Code    int    `json:"code"`

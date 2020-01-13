@@ -15,6 +15,7 @@
 package alien4cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -26,9 +27,9 @@ import (
 // OrchestratorService is the interface to the service mamaging orchestrators
 type OrchestratorService interface {
 	// Returns the Alien4Cloud locations for orchestratorID
-	GetOrchestratorLocations(orchestratorID string) ([]Location, error)
+	GetOrchestratorLocations(ctx context.Context, orchestratorID string) ([]Location, error)
 	// Returns the Alien4Cloud orchestrator ID from a given orchestator name
-	GetOrchestratorIDbyName(orchestratorName string) (string, error)
+	GetOrchestratorIDbyName(ctx context.Context, orchestratorName string) (string, error)
 }
 
 type orchestratorService struct {
@@ -36,18 +37,13 @@ type orchestratorService struct {
 }
 
 // GetOrchestratorLocations returns the Alien4Cloud locations for orchestratorID
-func (o *orchestratorService) GetOrchestratorLocations(orchestratorID string) ([]Location, error) {
+func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orchestratorID string) ([]Location, error) {
 	// Get orchestrator location
-	response, err := o.client.do(
+	response, err := o.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/orchestrators/%s/locations", a4CRestAPIPrefix, orchestratorID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -91,7 +87,7 @@ func (o *orchestratorService) GetOrchestratorLocations(orchestratorID string) ([
 }
 
 // GetOrchestratorIDbyName Return the Alien4Cloud orchestrator ID from a given orchestator name
-func (o *orchestratorService) GetOrchestratorIDbyName(orchestratorName string) (string, error) {
+func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orchestratorName string) (string, error) {
 
 	orchestratorsSearchBody, err := json.Marshal(searchRequest{orchestratorName, "0", "1"})
 
@@ -99,16 +95,11 @@ func (o *orchestratorService) GetOrchestratorIDbyName(orchestratorName string) (
 		return "", errors.Wrap(err, "Cannot marshal an searchRequest structure")
 	}
 
-	response, err := o.client.do(
+	response, err := o.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/orchestrators", a4CRestAPIPrefix),
 		[]byte(string(orchestratorsSearchBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {

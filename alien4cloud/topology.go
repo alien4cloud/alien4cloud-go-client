@@ -29,21 +29,21 @@ import (
 // TopologyService is the interface to the service mamaging topologies
 type TopologyService interface {
 	// Returns the topology ID on a given application and environment
-	GetTopologyID(appID string, envID string) (string, error)
+	GetTopologyID(ctx context.Context, appID string, envID string) (string, error)
 	// Returns the topology template ID for the given topologyName
-	GetTopologyTemplateIDByName(topologyName string) (string, error)
+	GetTopologyTemplateIDByName(ctx context.Context, topologyName string) (string, error)
 	// Updates the property value (type string) of a component of an application
-	UpdateComponentProperty(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string) error
+	UpdateComponentProperty(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string) error
 	// Updates the property value (type tosca complex) of a component of an application
-	UpdateComponentPropertyComplexType(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue map[string]interface{}) error
+	UpdateComponentPropertyComplexType(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue map[string]interface{}) error
 	// Updates the property value of a capability related to a component of an application
-	UpdateCapabilityProperty(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string, capabilityName string) error
+	UpdateCapabilityProperty(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string, capabilityName string) error
 	// Adds a new node in the A4C topology
-	AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, nodeTypeID string, nodeName string) error
+	AddNodeInA4CTopology(ctx context.Context, a4cCtx *TopologyEditorContext, nodeTypeID string, nodeName string) error
 	// Adds a new relationship in the A4C topology
-	AddRelationship(a4cCtx *TopologyEditorContext, sourceNodeName string, targetNodeName string, relType string) error
+	AddRelationship(ctx context.Context, a4cCtx *TopologyEditorContext, sourceNodeName string, targetNodeName string, relType string) error
 	// Saves the topology context
-	SaveA4CTopology(a4cCtx *TopologyEditorContext) error
+	SaveA4CTopology(ctx context.Context, a4cCtx *TopologyEditorContext) error
 	// Creates an empty workflow in the given topology
 	CreateWorkflow(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string) error
 	// Deletes a workflow in the given topology
@@ -74,18 +74,13 @@ const (
 )
 
 // GetTopologyID returns the A4C topology ID on a given application and environment
-func (t *topologyService) GetTopologyID(appID string, envID string) (string, error) {
+func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID string) (string, error) {
 
-	response, err := t.client.do(
+	response, err := t.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/topology", a4CRestAPIPrefix, appID, envID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -114,7 +109,7 @@ func (t *topologyService) GetTopologyID(appID string, envID string) (string, err
 }
 
 // GetTopologyTemplateIDByName return the topology template ID for the given topologyName
-func (t *topologyService) GetTopologyTemplateIDByName(topologyName string) (string, error) {
+func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topologyName string) (string, error) {
 
 	toposSearchBody, err := json.Marshal(searchRequest{topologyName, "0", "1"})
 
@@ -122,16 +117,11 @@ func (t *topologyService) GetTopologyTemplateIDByName(topologyName string) (stri
 		return "", errors.Wrap(err, "Cannot marshal an searchRequest structure")
 	}
 
-	response, err := t.client.do(
+	response, err := t.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/catalog/topologies/search", a4CRestAPIPrefix),
 		[]byte(string(toposSearchBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -182,7 +172,7 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 
 	if a4cCtx.TopologyID == "" {
 		var err error
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
 		}
@@ -198,16 +188,7 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 		"POST",
 		fmt.Sprintf("%s/editor/%s/execute", a4CRestAPIPrefix, a4cCtx.TopologyID),
 		[]byte(string(topoEditorExecuteBody)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-			{
-				"Accept",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -246,24 +227,19 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 }
 
 // getTopology method returns the A4C topology on a given application and environment
-func (t *topologyService) getTopology(appID string, envID string) (*Topology, error) {
+func (t *topologyService) getTopology(ctx context.Context, appID string, envID string) (*Topology, error) {
 
-	a4cTopologyID, err := t.GetTopologyID(appID, envID)
+	a4cTopologyID, err := t.GetTopologyID(ctx, appID, envID)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", appID, envID)
 	}
 
-	response, err := t.client.do(
+	response, err := t.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/topologies/%s", a4CRestAPIPrefix, a4cTopologyID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -291,7 +267,7 @@ func (t *topologyService) getTopology(appID string, envID string) (*Topology, er
 }
 
 // UpdateComponentPropertyComplexType Update the property value of a component of an application when propertyValue is not a simple type (map, array..)
-func (t *topologyService) UpdateComponentPropertyComplexType(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue map[string]interface{}) error {
+func (t *topologyService) UpdateComponentPropertyComplexType(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue map[string]interface{}) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
@@ -313,12 +289,12 @@ func (t *topologyService) UpdateComponentPropertyComplexType(a4cCtx *TopologyEdi
 
 	if a4cCtx.TopologyID == "" {
 		var err error
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s\n", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
-	err := t.editTopology(nil, a4cCtx, topoEditorExecute)
+	err := t.editTopology(ctx, a4cCtx, topoEditorExecute)
 	if err != nil {
 		return errors.Wrapf(err, "UpdateComponentProperty : Unable to edit the topology of application '%s' and environment '%s'\n", a4cCtx.AppID, a4cCtx.EnvID)
 	}
@@ -327,7 +303,7 @@ func (t *topologyService) UpdateComponentPropertyComplexType(a4cCtx *TopologyEdi
 }
 
 // UpdateComponentProperty Update the property value of a component of an application
-func (t *topologyService) UpdateComponentProperty(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string) error {
+func (t *topologyService) UpdateComponentProperty(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
@@ -347,12 +323,12 @@ func (t *topologyService) UpdateComponentProperty(a4cCtx *TopologyEditorContext,
 
 	if a4cCtx.TopologyID == "" {
 		var err error
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s\n", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
-	err := t.editTopology(nil, a4cCtx, topoEditorExecute)
+	err := t.editTopology(ctx, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "UpdateComponentProperty : Unable to edit the topology of application '%s' and environment '%s'\n", a4cCtx.AppID, a4cCtx.EnvID)
@@ -362,7 +338,7 @@ func (t *topologyService) UpdateComponentProperty(a4cCtx *TopologyEditorContext,
 }
 
 // UpdateCapabilityProperty Update the property value of a capability related to a component of an application
-func (t *topologyService) UpdateCapabilityProperty(a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string, capabilityName string) error {
+func (t *topologyService) UpdateCapabilityProperty(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string, capabilityName string) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
@@ -383,13 +359,13 @@ func (t *topologyService) UpdateCapabilityProperty(a4cCtx *TopologyEditorContext
 
 	if a4cCtx.TopologyID == "" {
 		var err error
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
 
-	err := t.editTopology(nil, a4cCtx, topoEditorExecute)
+	err := t.editTopology(ctx, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)
@@ -399,13 +375,13 @@ func (t *topologyService) UpdateCapabilityProperty(a4cCtx *TopologyEditorContext
 }
 
 // AddNodeInA4CTopology Add a new node in the A4C topology
-func (t *topologyService) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, NodeTypeID string, nodeName string) error {
+func (t *topologyService) AddNodeInA4CTopology(ctx context.Context, a4cCtx *TopologyEditorContext, NodeTypeID string, nodeName string) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
 	}
 
-	a4cTopology, err := t.getTopology(a4cCtx.AppID, a4cCtx.EnvID)
+	a4cTopology, err := t.getTopology(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
@@ -435,13 +411,13 @@ func (t *topologyService) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, No
 	}
 
 	if a4cCtx.TopologyID == "" {
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
 
-	err = t.editTopology(nil, a4cCtx, topoEditorExecute)
+	err = t.editTopology(ctx, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)
@@ -451,7 +427,7 @@ func (t *topologyService) AddNodeInA4CTopology(a4cCtx *TopologyEditorContext, No
 }
 
 // AddRelationship Add a new relationship in the A4C topology
-func (t *topologyService) AddRelationship(a4cCtx *TopologyEditorContext, sourceNodeName string, targetNodeName string, relType string) error {
+func (t *topologyService) AddRelationship(ctx context.Context, a4cCtx *TopologyEditorContext, sourceNodeName string, targetNodeName string, relType string) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
@@ -463,7 +439,7 @@ func (t *topologyService) AddRelationship(a4cCtx *TopologyEditorContext, sourceN
 	var relationshipDef relationshipType
 	var capabilityDef componentCapability
 
-	a4cTopology, err := t.getTopology(a4cCtx.AppID, a4cCtx.EnvID)
+	a4cTopology, err := t.getTopology(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
@@ -550,13 +526,13 @@ func (t *topologyService) AddRelationship(a4cCtx *TopologyEditorContext, sourceN
 	}
 
 	if a4cCtx.TopologyID == "" {
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
 
-	err = t.editTopology(nil, a4cCtx, topoEditorExecute)
+	err = t.editTopology(ctx, a4cCtx, topoEditorExecute)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to edit the topology of application '%s' and environment '%s'", a4cCtx.AppID, a4cCtx.EnvID)
@@ -566,7 +542,7 @@ func (t *topologyService) AddRelationship(a4cCtx *TopologyEditorContext, sourceN
 }
 
 // SaveA4CTopology saves the topology context
-func (t *topologyService) SaveA4CTopology(a4cCtx *TopologyEditorContext) error {
+func (t *topologyService) SaveA4CTopology(ctx context.Context, a4cCtx *TopologyEditorContext) error {
 
 	if a4cCtx == nil {
 		return errors.New("Context object must be defined")
@@ -574,26 +550,17 @@ func (t *topologyService) SaveA4CTopology(a4cCtx *TopologyEditorContext) error {
 
 	if a4cCtx.TopologyID == "" {
 		var err error
-		a4cCtx.TopologyID, err = t.GetTopologyID(a4cCtx.AppID, a4cCtx.EnvID)
+		a4cCtx.TopologyID, err = t.GetTopologyID(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 		if err != nil {
 			return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
 		}
 	}
 
-	response, err := t.client.do(
+	response, err := t.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/editor/%s?lastOperationId=%s", a4CRestAPIPrefix, a4cCtx.TopologyID, a4cCtx.PreviousOperationID),
 		nil,
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-			{
-				"Accept",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
 
 	if err != nil {
