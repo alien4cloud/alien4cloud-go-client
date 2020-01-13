@@ -513,3 +513,27 @@ func (t *Time) UnmarshalJSON(b []byte) (err error) {
 	t.Time = time.Unix(parsedTime/int64(1000), (parsedTime%int64(1000))*int64(1000000))
 	return nil
 }
+
+// topologyEditorExecuteRequest is the representation of a request to edit an application from a topology template
+type topologyEditorExecuteRequest struct {
+	PreviousOperationID *string `json:"previousOperationId"`
+	OperationType       string  `json:"type"`
+}
+
+func (t topologyEditorExecuteRequest) getPreviousOperationID() string {
+	if t.PreviousOperationID == nil {
+		return ""
+	}
+	return *t.PreviousOperationID
+}
+
+func (t topologyEditorExecuteRequest) getOperationType() string {
+	return t.OperationType
+}
+
+// topologyEditorPolicies is the representation of a request to execute the topology editor
+type topologyEditorPolicies struct {
+	topologyEditorExecuteRequest
+	PolicyName   string `json:"policyName"`
+	PolicyTypeID string `json:"policyTypeId,omitempty"`
+}
