@@ -34,6 +34,8 @@ func Test_topologyService_AddPolicy(t *testing.T) {
 			assert.Assert(t, "" != tepReq.PolicyTypeID)
 			if tepReq.PolicyName == "policy1withid" {
 				assert.Assert(t, "" != tepReq.getPreviousOperationID())
+			} else {
+				assert.Equal(t, tepReq.getPreviousOperationID(), "")
 			}
 			var resExec struct {
 				Data struct {
@@ -132,6 +134,8 @@ func Test_topologyService_DeletePolicy(t *testing.T) {
 			assert.Assert(t, "" != tepReq.PolicyName)
 			if tepReq.PolicyName == "policy1withid" {
 				assert.Assert(t, "" != tepReq.getPreviousOperationID())
+			} else {
+				assert.Equal(t, tepReq.getPreviousOperationID(), "")
 			}
 			var resExec struct {
 				Data struct {
