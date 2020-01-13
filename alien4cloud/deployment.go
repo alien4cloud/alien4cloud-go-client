@@ -194,7 +194,7 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "Unable to send a request to set the location in order to deploy an application")
+return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
 	}
 	defer response.Body.Close()
 
