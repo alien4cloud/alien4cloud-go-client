@@ -83,7 +83,7 @@ func (a *applicationService) CreateAppli(ctx context.Context, appName string, ap
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
-		return appID, getError(response.Body)
+		return appID, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -132,7 +132,7 @@ func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID s
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -193,7 +193,7 @@ func (a *applicationService) IsApplicationExist(ctx context.Context, application
 		return false, nil
 
 	default:
-		return false, getError(response.Body)
+		return false, getError(response)
 	}
 }
 
@@ -226,7 +226,7 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 
 	switch response.StatusCode {
 	default:
-		return nil, getError(response.Body)
+		return nil, getError(response)
 
 	case http.StatusNotFound:
 		// No application with this filter have been found
@@ -301,7 +301,7 @@ func (a *applicationService) GetApplicationByID(ctx context.Context, id string) 
 
 	switch response.StatusCode {
 	default:
-		return nil, getError(response.Body)
+		return nil, getError(response)
 
 	case http.StatusNotFound:
 		// No application with this filter have been found
@@ -357,7 +357,7 @@ func (a *applicationService) DeleteApplication(ctx context.Context, appID string
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil
@@ -393,7 +393,7 @@ func (a *applicationService) SetTagToApplication(ctx context.Context, applicatio
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil

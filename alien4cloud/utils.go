@@ -16,7 +16,6 @@ package alien4cloud
 
 import (
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -25,18 +24,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-func getError(body io.ReadCloser) error {
-
-	r, _ := ioutil.ReadAll(body)
-	body.Close()
-
+func getError(response *http.Response) error {
 	var res struct {
 		Error Error `json:"error"`
 	}
+	err := readCloseResponseBody(response, &res)
 
-	err := json.Unmarshal(r, &res)
 	if err != nil {
-		return errors.New("failed to read error message from Alien4Cloud")
+		return err
 	}
 
 	return errors.New(res.Error.Message)
@@ -75,7 +70,7 @@ func (jar *jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies[u.Host]
 }
 
-func readBodyData(response *http.Response, data interface{}) error {
+func readCloseResponseBody(response *http.Response, data interface{}) error {
 	defer response.Body.Close()
 	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {

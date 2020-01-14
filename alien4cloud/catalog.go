@@ -106,7 +106,7 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 
 	// Should be a created status but alien actually returns a OK status...
 	if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
-		return c, getError(response.Body)
+		return c, getError(response)
 	}
 
 	var res struct {
@@ -115,7 +115,7 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 			Errors map[string][]ParsingError `json:"errors,omitempty"`
 		} `json:"data"`
 	}
-	err = readBodyData(response, &res)
+	err = readCloseResponseBody(response, &res)
 	if err != nil {
 		return c, errors.Wrap(err, "Cannot convert the body of the uploaded CSAR description")
 	}

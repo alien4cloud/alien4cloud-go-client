@@ -79,7 +79,7 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, 0, getError(response.Body)
+		return nil, 0, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -137,7 +137,7 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, 0, getError(response.Body)
+		return nil, 0, getError(response)
 	}
 
 	responseBody, err = ioutil.ReadAll(response.Body)

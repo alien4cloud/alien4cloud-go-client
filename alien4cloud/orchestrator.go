@@ -52,7 +52,7 @@ func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orch
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -108,7 +108,7 @@ func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orche
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)

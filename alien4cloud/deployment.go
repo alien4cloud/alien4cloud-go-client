@@ -89,7 +89,7 @@ func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -166,7 +166,7 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	// Deploy the application a4cApplicationDeployhRequestIn
@@ -188,7 +188,7 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil
@@ -209,7 +209,7 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil
@@ -231,7 +231,7 @@ func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string,
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -280,7 +280,7 @@ func (d *deploymentService) UndeployApplication(ctx context.Context, appID strin
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil
@@ -333,7 +333,7 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	var statusResponse struct {
@@ -341,7 +341,7 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 		Error *Error `json:"error,omitempty"`
 	}
 
-	err = readBodyData(response, &statusResponse)
+	err = readCloseResponseBody(response, &statusResponse)
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to unmarshal the deployment status")
 	}
@@ -370,7 +370,7 @@ func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicat
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	var res struct {
@@ -381,7 +381,7 @@ func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicat
 		} `json:"data"`
 	}
 
-	err = readBodyData(response, &res)
+	err = readCloseResponseBody(response, &res)
 
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to unmarshal content of the get deployment monitored request")
@@ -407,7 +407,7 @@ func (d *deploymentService) GetNodeStatus(ctx context.Context, applicationID str
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -454,7 +454,7 @@ func (d *deploymentService) GetOutputAttributes(ctx context.Context, application
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -491,7 +491,7 @@ func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationI
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -554,7 +554,7 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 		Data string `json:"data"`
 	}
 
-	err = readBodyData(response, &res)
+	err = readCloseResponseBody(response, &res)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read response on running workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
 	}
@@ -644,7 +644,7 @@ func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applic
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)

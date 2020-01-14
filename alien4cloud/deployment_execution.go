@@ -28,7 +28,7 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, FacetedSearchResult{}, getError(response.Body)
+		return nil, FacetedSearchResult{}, getError(response)
 	}
 
 	var res struct {
@@ -39,7 +39,7 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 		} `json:"data"`
 	}
 
-	err = readBodyData(response, &res)
+	err = readCloseResponseBody(response, &res)
 	if err != nil {
 		return nil, FacetedSearchResult{}, errors.Wrapf(err, "Cannot convert the body response to request on executions for deployment %q", deploymentID)
 	}

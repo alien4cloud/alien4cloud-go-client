@@ -94,7 +94,7 @@ func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	if err != nil {
@@ -104,7 +104,7 @@ func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID
 		Data string `json:"data"`
 	}
 
-	err = readBodyData(response, &res)
+	err = readCloseResponseBody(response, &res)
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot convert the body of topology get data for application '%s' in '%s' environment", appID, envID)
 	}
@@ -134,7 +134,7 @@ func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topol
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
+		return "", getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -201,7 +201,7 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	var resExec struct {
@@ -212,7 +212,7 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 			} `json:"operations"`
 		} `json:"data"`
 	}
-	err = readBodyData(response, &resExec)
+	err = readCloseResponseBody(response, &resExec)
 	if err != nil {
 		return errors.Wrap(err, "Unable to unmarshal a topology edition response")
 	}
@@ -247,7 +247,7 @@ func (t *topologyService) getTopology(ctx context.Context, appID string, envID s
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
+		return nil, getError(response)
 	}
 
 	responseBody, err := ioutil.ReadAll(response.Body)
@@ -567,7 +567,7 @@ func (t *topologyService) SaveA4CTopology(ctx context.Context, a4cCtx *TopologyE
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	// After saving topology, get come back to a clear state.

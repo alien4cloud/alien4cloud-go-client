@@ -225,7 +225,7 @@ func (c *a4cClient) Logout(ctx context.Context) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil
@@ -333,7 +333,7 @@ func (r *restClient) login(ctx context.Context) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return getError(response)
 	}
 
 	return nil
