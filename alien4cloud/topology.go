@@ -97,8 +97,6 @@ func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID
 		return "", getError(response.Body)
 	}
 
-	responseBody, err := ioutil.ReadAll(response.Body)
-
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot read the body of the topology get data for application '%s' in '%s' environment", appID, envID)
 	}
@@ -106,7 +104,8 @@ func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID
 		Data string `json:"data"`
 	}
 
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+	err = readBodyData(response, &res)
+	if err != nil {
 		return "", errors.Wrapf(err, "Cannot convert the body of topology get data for application '%s' in '%s' environment", appID, envID)
 	}
 
@@ -204,11 +203,6 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 	if response.StatusCode != http.StatusOK {
 		return getError(response.Body)
 	}
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return errors.Wrap(err, "Unable to read the content of a topology edition request")
-	}
 
 	var resExec struct {
 		Data struct {
@@ -218,8 +212,8 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 			} `json:"operations"`
 		} `json:"data"`
 	}
-
-	if err = json.Unmarshal([]byte(responseBody), &resExec); err != nil {
+	err = readBodyData(response, &resExec)
+	if err != nil {
 		return errors.Wrap(err, "Unable to unmarshal a topology edition response")
 	}
 

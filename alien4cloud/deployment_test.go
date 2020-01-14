@@ -16,11 +16,14 @@ package alien4cloud
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
 	"time"
+
+	"gotest.tools/v3/assert"
 )
 
 func Test_deploymentService_UpdateApplication(t *testing.T) {
@@ -153,4 +156,128 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 	if _, err := d.WaitUntilStateIs(cancelableCtx, "cancel", "envID", ApplicationUpdated); err == nil {
 		t.Error("deploymentService.WaitUntilStateIs() expecting an error")
 	}
+}
+
+func Test_deploymentService_RunWorkflow(t *testing.T) {
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		case regexp.MustCompile(`.*/applications/cancel/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
+			// wait until test are finish to simulate long running op that will be cancelled
+			<-closeCh
+			w.WriteHeader(http.StatusOK)
+			return
+		case regexp.MustCompile(`.*/applications/emptyExecID/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":""}`))
+			return
+		case regexp.MustCompile(`.*/applications/badExecID/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":"execID"}`))
+			return
+		case regexp.MustCompile(`.*/applications/badDepID/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"deployment":`))
+			return
+
+		case regexp.MustCompile(`.*/applications/execCancel/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"deployment":{"id":"execCancel"}}}`))
+			return
+
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			matches := regexp.MustCompile(`.*/applications/(.*)/environments/.*/active-deployment-monitored`).FindStringSubmatch(r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fmt.Sprintf(`{"data":{"deployment":{"id":"%s"}}}`, matches[1])))
+			return
+		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("environmentId") == "execCancel":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			return
+		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("environmentId") == "badExecSearch":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"i`))
+			return
+		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("environmentId") == "noExecSearch":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"types":[],"data":[],"queryDuration":1,"totalResults":0,"from":0,"to":0,"facets":null},"error":null}`))
+			return
+		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx          context.Context
+		a4cAppID     string
+		a4cEnvID     string
+		workflowName string
+		timeout      time.Duration
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *WorkflowExecution
+		wantErr bool
+	}{
+		{"Normal", args{context.Background(), "app", "env", "wf", 5 * time.Minute},
+			&WorkflowExecution{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
+			false,
+		},
+		{"EmptyExecID", args{context.Background(), "emptyExecID", "env", "wf", 5 * time.Minute}, nil, true},
+		{"BadExecID", args{context.Background(), "badExecID", "env", "wf", 5 * time.Minute}, nil, true},
+		{"BadDepID", args{context.Background(), "badDepID", "env", "wf", 5 * time.Minute}, nil, true},
+		{"BadExecSearch", args{context.Background(), "badExecSearch", "env", "wf", 5 * time.Minute}, nil, true},
+		{"NoExecSearch", args{context.Background(), "noExecSearch", "env", "wf", 5 * time.Minute}, nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &deploymentService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			got, err := d.RunWorkflow(tt.args.ctx, tt.args.a4cAppID, tt.args.a4cEnvID, tt.args.workflowName, tt.args.timeout)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.RunWorkflow() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.DeepEqual(t, got, tt.want)
+		})
+	}
+
+	cancelableCtx, cancelFn := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancelFn()
+	d := &deploymentService{
+		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+	}
+
+	_, err := d.RunWorkflow(cancelableCtx, "cancel", "envID", "wf", 500*time.Millisecond)
+	assert.ErrorContains(t, err, "context deadline exceeded")
+
+	cancelableCtx, cancelFn = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancelFn()
+	_, err = d.RunWorkflow(cancelableCtx, "cancel", "envID", "wf", 50*time.Millisecond)
+	assert.ErrorContains(t, err, "context deadline exceeded")
+
+	cancelableCtx, cancelFn = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancelFn()
+	_, err = d.RunWorkflow(cancelableCtx, "execCancel", "envID", "wf", 50*time.Millisecond)
+	assert.ErrorContains(t, err, "context deadline exceeded")
+
+	cancelableCtx, cancelFn = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancelFn()
+	_, err = d.RunWorkflow(cancelableCtx, "execCancel", "envID", "wf", 50*time.Millisecond)
+	assert.ErrorContains(t, err, "context deadline exceeded")
 }

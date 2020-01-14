@@ -74,3 +74,13 @@ func (jar *jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 func (jar *jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies[u.Host]
 }
+
+func readBodyData(response *http.Response, data interface{}) error {
+	defer response.Body.Close()
+	responseBody, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return errors.Wrap(err, "Cannot read the response from Alien4Cloud")
+	}
+	err = json.Unmarshal(responseBody, &data)
+	return errors.Wrap(err, "Unable to unmarshal content of the execution status response")
+}

@@ -3,10 +3,8 @@ package alien4cloud
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -111,22 +109,17 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 		return c, getError(response.Body)
 	}
 
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return c, errors.Wrap(err, "Cannot read the body of the uploaded CSAR description")
-	}
 	var res struct {
 		Data struct {
 			CSAR   CSAR                      `json:"csar,omitempty"`
 			Errors map[string][]ParsingError `json:"errors,omitempty"`
 		} `json:"data"`
 	}
-
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+	err = readBodyData(response, &res)
+	if err != nil {
 		return c, errors.Wrap(err, "Cannot convert the body of the uploaded CSAR description")
 	}
-	err = nil
+
 	if len(res.Data.Errors) > 0 {
 		err = &parsingErr{res.Data.Errors}
 	}

@@ -484,8 +484,12 @@ type LogFilter struct {
 // WorkflowExecution represents rest api workflow execution
 type WorkflowExecution struct {
 	ID                  string `json:"id"`
+	DeploymentID        string `json:"deploymentId"`
+	WorkflowID          string `json:"workflowId"`
+	WorkflowName        string `json:"workflowName"`
 	DisplayWorkflowName string `json:"displayWorkflowName"`
 	Status              string `json:"status"`
+	HasFailedTasks      bool   `json:"hasFailedTasks"`
 }
 
 // Time represents the timestamp field from A4C
@@ -536,4 +540,11 @@ type topologyEditorPolicies struct {
 	topologyEditorExecuteRequest
 	PolicyName   string `json:"policyName"`
 	PolicyTypeID string `json:"policyTypeId,omitempty"`
+}
+
+// FacetedSearchResult allows to retrieve pagination information
+type FacetedSearchResult struct {
+	TotalResults int `json:"totalResults"`
+	From         int `json:"from"`
+	To           int `json:"to"`
 }
