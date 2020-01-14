@@ -5,11 +5,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 )
 
 func Test_deploymentService_GetExecutions(t *testing.T) {
+	closeCh := make(chan struct{})
+	defer close(closeCh)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Assert(t, "" != r.URL.Query().Get("environmentId"))
 		assert.Assert(t, "" != r.URL.Query().Get("from"))
@@ -32,6 +35,10 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 		case "error":
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case "internalerror":
+			<-closeCh
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}))
@@ -89,4 +96,14 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 			assert.DeepEqual(t, got1, tt.want1)
 		})
 	}
+
+	ctx, cf := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cf()
+	d := &deploymentService{
+		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+	}
+	got, got1, err := d.GetExecutions(ctx, "internalerror", "", 0, 10)
+	assert.ErrorContains(t, err, "context deadline exceeded")
+	assert.Assert(t, got == nil)
+	assert.DeepEqual(t, got1, FacetedSearchResult{})
 }
