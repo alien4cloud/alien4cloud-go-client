@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -80,30 +79,12 @@ func (a *applicationService) CreateAppli(ctx context.Context, appName string, ap
 	if err != nil {
 		return appID, errors.Wrap(err, "Cannot send a request to create an application")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusCreated {
-		return appID, getError(response)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return appID, errors.Wrap(err, "Cannot read the body of the result of the application creation")
-	}
 
 	var appStruct struct {
 		Data string `json:"data"`
 	}
-
-	err = json.Unmarshal(responseBody, &appStruct)
-	if err != nil {
-		return appID, errors.Wrap(err, "Cannot unmarshal the reponse of the application creation")
-	}
-
-	appID = appStruct.Data
-
-	return appID, err
+	err = processA4CResponse(response, &appStruct, http.StatusCreated)
+	return appStruct.Data, errors.Wrap(err, "Cannot unmarshal the reponse of the application creation")
 }
 
 // GetEnvironmentIDbyName Return the Alien4Cloud environment ID from a given application ID and environment name
@@ -129,17 +110,6 @@ func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID s
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to send request to get environment ID from its name of an application")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read the body of the search for '%s' environment", envName)
-	}
 
 	var res struct {
 		Data struct {
@@ -150,8 +120,8 @@ func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID s
 			} `json:"data"`
 		} `json:"data"`
 	}
-
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
 		return "", errors.Wrapf(err, "Cannot convert the body of the search for '%s' environment", envName)
 	}
 
@@ -182,18 +152,16 @@ func (a *applicationService) IsApplicationExist(ctx context.Context, application
 	if err != nil {
 		return false, errors.Wrap(err, "Cannot send a request to ensure an application exists")
 	}
-	defer response.Body.Close()
-
 	switch response.StatusCode {
 
-	case http.StatusOK:
-		return true, nil
-
 	case http.StatusNotFound:
+		// to fully read response
+		processA4CResponse(response, nil, http.StatusNotFound)
 		return false, nil
 
 	default:
-		return false, getError(response)
+		err = processA4CResponse(response, nil, http.StatusOK)
+		return err == nil, err
 	}
 }
 
@@ -225,21 +193,14 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 	defer response.Body.Close()
 
 	switch response.StatusCode {
-	default:
-		return nil, getError(response)
 
 	case http.StatusNotFound:
 		// No application with this filter have been found
+		// to fully read response
+		processA4CResponse(response, nil, http.StatusNotFound)
 		return nil, nil
 
-	case http.StatusOK:
-
-		responseBody, err := ioutil.ReadAll(response.Body)
-
-		if err != nil {
-			return nil, errors.Wrap(err, "Unable to read the response of A4C application list request")
-		}
-
+	default:
 		var res struct {
 			Data struct {
 				Types []string `json:"types"`
@@ -251,9 +212,9 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 			} `json:"data"`
 			Error Error `json:"error"`
 		}
-
-		if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
-			return nil, errors.Wrap(err, "Unable to unmarshal the response of A4C application list request")
+		err = processA4CResponse(response, &res, http.StatusOK)
+		if err != nil {
+			return nil, err
 		}
 
 		if res.Data.TotalResults <= 0 {
@@ -297,23 +258,14 @@ func (a *applicationService) GetApplicationByID(ctx context.Context, id string) 
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
 	}
-	defer response.Body.Close()
-
 	switch response.StatusCode {
-	default:
-		return nil, getError(response)
-
 	case http.StatusNotFound:
 		// No application with this filter have been found
+		// to fully read response
+		processA4CResponse(response, nil, http.StatusNotFound)
 		return nil, nil
 
-	case http.StatusOK:
-
-		responseBody, err := ioutil.ReadAll(response.Body)
-
-		if err != nil {
-			return nil, errors.Wrap(err, "Unable to read the response of A4C application request")
-		}
+	default:
 
 		var res struct {
 			Data struct {
@@ -323,9 +275,9 @@ func (a *applicationService) GetApplicationByID(ctx context.Context, id string) 
 			} `json:"data"`
 			Error Error `json:"error"`
 		}
-
-		if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
-			return nil, errors.Wrap(err, "Unable to unmarshal the response of A4C application request")
+		err = processA4CResponse(response, &res, http.StatusOK)
+		if err != nil {
+			return nil, err
 		}
 
 		if res.Data.TotalResults <= 0 {
@@ -354,13 +306,7 @@ func (a *applicationService) DeleteApplication(ctx context.Context, appID string
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to delete A4C application")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response)
-	}
-
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
 
 // SetTagToApplication set tag tagKey/tagValue to application
@@ -390,13 +336,7 @@ func (a *applicationService) SetTagToApplication(ctx context.Context, applicatio
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to set a tag to an application")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response)
-	}
-
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
 
 // GetApplicationTag returns the tag value for the given application ID and tag key

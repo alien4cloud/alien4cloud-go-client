@@ -222,13 +222,7 @@ func (c *a4cClient) Logout(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response)
-	}
-
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
 
 // ApplicationService retrieves the Application Service
@@ -330,11 +324,5 @@ func (r *restClient) login(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response)
-	}
-
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }

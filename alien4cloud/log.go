@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -76,18 +75,6 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot send a request to get number of logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, 0, getError(response)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "Cannot read the body of the log query response '%s' in '%s' environment", applicationID, environmentID)
-	}
-
 	var res struct {
 		Data struct {
 			Data         []Log `json:"data"`
@@ -97,8 +84,7 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 		} `json:"data"`
 	}
 
-	err = json.Unmarshal(responseBody, &res)
-
+	err = processA4CResponse(response, &res, http.StatusOK)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "Unable to unmarshal logs from orchestrator")
 	}
@@ -119,7 +105,6 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 	}
 
 	body, err = json.Marshal(logsFilter)
-
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "Unable to marshal log filters to get logs for the deployment.")
 	}
@@ -134,20 +119,7 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot send a request to get logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, 0, getError(response)
-	}
-
-	responseBody, err = ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, 0, errors.Wrapf(err, "Cannot read the body of the log query response '%s' in '%s' environment", applicationID, environmentID)
-	}
-
-	err = json.Unmarshal(responseBody, &res)
-
+	err = processA4CResponse(response, &res, http.StatusOK)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "Unable to unmarshal logs from orchestrator")
 	}

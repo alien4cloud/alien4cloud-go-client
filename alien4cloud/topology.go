@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
@@ -91,32 +90,18 @@ func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot send a request in order to find the topology for application '%s' in '%s' environment", appID, envID)
 	}
-	defer response.Body.Close()
 
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response)
-	}
-
-	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read the body of the topology get data for application '%s' in '%s' environment", appID, envID)
-	}
 	var res struct {
 		Data string `json:"data"`
 	}
-
-	err = readCloseResponseBody(response, &res)
-	if err != nil {
-		return "", errors.Wrapf(err, "Cannot convert the body of topology get data for application '%s' in '%s' environment", appID, envID)
-	}
-
-	return res.Data, nil
+	err = processA4CResponse(response, &res, http.StatusOK)
+	return res.Data, errors.Wrapf(err, "Cannot read a4c response of the topology get data for application '%s' in '%s' environment", appID, envID)
 }
 
 // GetTopologyTemplateIDByName return the topology template ID for the given topologyName
 func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topologyName string) (string, error) {
 
 	toposSearchBody, err := json.Marshal(searchRequest{topologyName, "0", "1"})
-
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot marshal an searchRequest structure")
 	}
@@ -127,20 +112,8 @@ func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topol
 		[]byte(string(toposSearchBody)),
 		[]Header{contentTypeAppJSONHeader},
 	)
-
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot send a request to get the topology id")
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return "", errors.Wrap(err, "Cannot read the body of the request when getting topology id")
 	}
 
 	var res struct {
@@ -153,18 +126,16 @@ func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topol
 			TotalResults int `json:"totalResults"`
 		} `json:"data"`
 	}
-
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
-		return "", errors.Wrap(err, "Cannot unmarshal the request to get topology id")
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return "", errors.Wrapf(err, "Cannot read response when getting topology id for topology named %q", topologyName)
 	}
 
 	if res.Data.TotalResults <= 0 {
-		return "", fmt.Errorf("'%s' topology template does not exist", topologyName)
+		return "", errors.Errorf("%q topology template does not exist", topologyName)
 	}
 
-	templateID := res.Data.Data[0].ID
-
-	return templateID, nil
+	return res.Data.Data[0].ID, nil
 }
 
 // editTopology Edit the topology of an application
@@ -198,11 +169,6 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 	if err != nil {
 		return errors.Wrap(err, "Unable to send the request edit an A4C topology")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response)
-	}
 
 	var resExec struct {
 		Data struct {
@@ -212,7 +178,8 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 			} `json:"operations"`
 		} `json:"data"`
 	}
-	err = readCloseResponseBody(response, &resExec)
+
+	err = processA4CResponse(response, &resExec, http.StatusOK)
 	if err != nil {
 		return errors.Wrap(err, "Unable to unmarshal a topology edition response")
 	}
@@ -244,21 +211,10 @@ func (t *topologyService) getTopology(ctx context.Context, appID string, envID s
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot get the topology content for application '%s' in '%s' environment", appID, envID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read the body of the topology get data for application '%s' in '%s' environment", appID, envID)
-	}
 
 	res := new(Topology)
-
-	if err = json.Unmarshal([]byte(responseBody), res); err != nil {
+	err = processA4CResponse(response, res, http.StatusOK)
+	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot convert the body of topology get data for application '%s' in '%s' environment", appID, envID)
 	}
 
@@ -565,13 +521,9 @@ func (t *topologyService) SaveA4CTopology(ctx context.Context, a4cCtx *TopologyE
 	if err != nil {
 		return errors.Wrap(err, "Unable to send the request to save an A4C topology")
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return getError(response)
-	}
 
 	// After saving topology, get come back to a clear state.
 	a4cCtx.PreviousOperationID = ""
 
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
