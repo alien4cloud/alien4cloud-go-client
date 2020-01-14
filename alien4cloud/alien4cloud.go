@@ -50,21 +50,21 @@ const (
 	// Alien4Cloud for an application
 	DefaultEnvironmentName = "Environment"
 	// ApplicationDeploymentInProgress a4c status
-	ApplicationDeploymentInProgress = "deployment_in_progress"
+	ApplicationDeploymentInProgress = "DEPLOYMENT_IN_PROGRESS"
 	// ApplicationDeployed a4c status
-	ApplicationDeployed = "deployed"
+	ApplicationDeployed = "DEPLOYED"
 	// ApplicationUndeploymentInProgress a4c status
-	ApplicationUndeploymentInProgress = "undeployment_in_progress"
+	ApplicationUndeploymentInProgress = "UNDEPLOYMENT_IN_PROGRESS"
 	// ApplicationUndeployed a4c status
-	ApplicationUndeployed = "undeployed"
+	ApplicationUndeployed = "UNDEPLOYED"
 	// ApplicationError a4c status
-	ApplicationError = "failure"
+	ApplicationError = "FAILURE"
 	// ApplicationUpdateError a4c status
-	ApplicationUpdateError = "update_failure"
+	ApplicationUpdateError = "UPDATE_FAILURE"
 	// ApplicationUpdated a4c status
-	ApplicationUpdated = "updated"
+	ApplicationUpdated = "UPDATED"
 	// ApplicationUpdateInProgress a4c status
-	ApplicationUpdateInProgress = "update_in_progress"
+	ApplicationUpdateInProgress = "UPDATE_IN_PROGRESS"
 
 	// WorkflowSucceeded workflow a4c status
 	WorkflowSucceeded = "SUCCEEDED"
