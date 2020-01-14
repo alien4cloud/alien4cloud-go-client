@@ -51,15 +51,17 @@ type DeploymentService interface {
 	GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
 	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID
 	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error)
-	// Runs a workflow asynchronously, results will be notified using the ExecutionCallback function.
+	// Runs a workflow asynchronously returning the execution id, results will be notified using the ExecutionCallback function.
 	// Cancelling the context cancels the function that monitor the execution
-	RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) error
+	RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error)
 	// Returns the workflow execution for the given applicationID and environmentID
 	GetLastWorkflowExecution(ctx context.Context, applicationID string, environmentID string) (*WorkflowExecution, error)
 
-	// Returns executions for a given deployment
-	// query allow to search a specific execution but may be empty
-	// from and size allows to paginate results
+	// Returns executions
+	//
+	// - deploymentID allows to search executions of a specific deployment but may be empty
+	// - query allows to search a specific execution but may be empty
+	// - from and size allows to paginate results
 	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]WorkflowExecution, FacetedSearchResult, error)
 }
 
@@ -422,7 +424,7 @@ func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationI
 
 // Runs a workflow asynchronously, results will be notified using the ExecutionCallback function.
 // Cancelling the context cancels the function that monitor the execution
-func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) error {
+func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error) {
 	response, err := d.client.doWithContext(
 		ctx,
 		"POST",
@@ -431,29 +433,25 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 		[]Header{acceptAppJSONHeader},
 	)
 	if err != nil {
-		return errors.Wrapf(err, "failed to run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+		return "", errors.Wrapf(err, "failed to run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
 	err = processA4CResponse(response, &res, http.StatusOK)
 	if err != nil {
-		return errors.Wrapf(err, "failed to read response on running workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+		return "", errors.Wrapf(err, "failed to read response on running workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
 	}
 
 	if res.Data == "" {
-		return errors.Errorf("no execution id returned on run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+		return "", errors.Errorf("no execution id returned on run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
 	}
-
-	deploymentID, err := d.GetCurrentDeploymentID(ctx, a4cAppID, a4cEnvID)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get deployment id on running workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
-	}
-
+	// Let a4c time to register execution (500ms is not enough)
+	<-time.After(time.Second)
 	// now monitor workflow execution
 	go func() {
 		for {
-			executions, _, err := d.GetExecutions(ctx, deploymentID, res.Data, 0, 1)
+			executions, _, err := d.GetExecutions(ctx, "", res.Data, 0, 1)
 			if err != nil {
 				callback(nil, err)
 				return
@@ -480,7 +478,7 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 		}
 	}()
 
-	return nil
+	return res.Data, nil
 }
 
 // RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
@@ -491,7 +489,7 @@ func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4
 	var wfExec *WorkflowExecution
 	doneCh := make(chan struct{})
 	var cbErr error
-	err := d.RunWorkflowAsync(ctx, a4cAppID, a4cEnvID, workflowName, func(exec *WorkflowExecution, e error) {
+	_, err := d.RunWorkflowAsync(ctx, a4cAppID, a4cEnvID, workflowName, func(exec *WorkflowExecution, e error) {
 		wfExec = exec
 		cbErr = e
 		close(doneCh)

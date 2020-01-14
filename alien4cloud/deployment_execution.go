@@ -11,7 +11,12 @@ import (
 )
 
 func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]WorkflowExecution, FacetedSearchResult, error) {
-	u := fmt.Sprintf("%s/executions/search?environmentId=%s&from=%s&size=%s", a4CRestAPIPrefix, deploymentID, url.QueryEscape(strconv.Itoa(from)), url.QueryEscape(strconv.Itoa(from)))
+	u := fmt.Sprintf("%s/executions/search?from=%s&size=%s", a4CRestAPIPrefix, url.QueryEscape(strconv.Itoa(from)), url.QueryEscape(strconv.Itoa(size)))
+
+	if deploymentID != "" {
+		u = fmt.Sprintf("%s&deploymentId=%s", u, url.QueryEscape(deploymentID))
+	}
+
 	if query != "" {
 		u = fmt.Sprintf("%s&query=%s", u, url.QueryEscape(query))
 	}
