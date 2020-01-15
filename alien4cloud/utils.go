@@ -16,7 +16,6 @@ package alien4cloud
 
 import (
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -24,23 +23,6 @@ import (
 
 	"github.com/pkg/errors"
 )
-
-func getError(body io.ReadCloser) error {
-
-	r, _ := ioutil.ReadAll(body)
-	body.Close()
-
-	var res struct {
-		Error Error `json:"error"`
-	}
-
-	err := json.Unmarshal(r, &res)
-	if err != nil {
-		return errors.New("failed to read error message from Alien4Cloud")
-	}
-
-	return errors.New(res.Error.Message)
-}
 
 // ------------------------------------------
 // Implementation of http.CookieJar interface
@@ -73,4 +55,26 @@ func (jar *jar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // restrictions such as in RFC 6265.
 func (jar *jar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.cookies[u.Host]
+}
+
+func processA4CResponse(response *http.Response, expectedData interface{}, expectedStatus int) error {
+	defer response.Body.Close()
+	responseBody, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return errors.Wrap(err, "Cannot read the response from Alien4Cloud")
+	}
+	if response.StatusCode != expectedStatus {
+		var res struct {
+			Error Error `json:"error"`
+		}
+		err = json.Unmarshal(responseBody, &res)
+		if err != nil {
+			return errors.Wrap(err, "Unable to unmarshal content of the Alien4Cloud response")
+		}
+		return errors.New(res.Error.Message)
+	}
+	if expectedData != nil {
+		err = json.Unmarshal(responseBody, &expectedData)
+	}
+	return errors.Wrap(err, "Unable to unmarshal content of the Alien4Cloud response")
 }

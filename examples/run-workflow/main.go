@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"time"
 
@@ -69,28 +68,42 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-
-	workflowExecution, err := client.DeploymentService().RunWorkflow(ctx, appName, envID, workflow, workflowExecutionStartTimeout)
+	closeCh := make(chan struct{})
+	var cb alien4cloud.ExecutionCallback = func(wfExec *alien4cloud.WorkflowExecution, cbe error) {
+		if wfExec != nil {
+			log.Printf("Workflow ended with status: %s\n", wfExec.Status)
+		}
+		if cbe != nil {
+			log.Printf("Workflow monitoring encountered an error: %v\n", cbe)
+		}
+		close(closeCh)
+	}
+	execID, err := client.DeploymentService().RunWorkflowAsync(ctx, appName, envID, workflow, cb)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	// Wait for the end of deployment
-	done := false
 	log.Printf("Waiting for the end of workflow execution...")
 	filters := alien4cloud.LogFilter{
-		ExecutionID: []string{workflowExecution.ID},
+		ExecutionID: []string{execID},
 	}
-	var workflowStatus string
 	logIndex := 0
-	for !done {
-		time.Sleep(5 * time.Second)
-
+ExitLoop:
+	for {
+		select {
+		case <-closeCh:
+			break ExitLoop
+		case <-time.After(5 * time.Second):
+		}
 		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(ctx, appName, envID, filters, logIndex)
+		if err != nil {
+			log.Panic(err)
+		}
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {
-				fmt.Printf("%s [%s][%s][%s][%s][%s][%s][%s] %s\n",
+				log.Printf("%s [%s][%s][%s][%s][%s][%s][%s] %s",
 					a4cLogs[idx].Timestamp.Format(time.RFC3339),
 					a4cLogs[idx].DeploymentPaaSID,
 					a4cLogs[idx].Level,
@@ -101,17 +114,6 @@ func main() {
 					a4cLogs[idx].OperationName,
 					a4cLogs[idx].Content)
 			}
-		}
-
-		workflowExecution, err = client.DeploymentService().GetLastWorkflowExecution(ctx, appName, envID)
-		if err != nil {
-			log.Panic(err)
-		}
-		workflowStatus = workflowExecution.Status
-		done = (workflowStatus == alien4cloud.WorkflowSucceeded || workflowStatus == alien4cloud.WorkflowFailed)
-		if done {
-			fmt.Printf("\nWorkflow status: %s\n", workflowStatus)
-			break
 		}
 	}
 }

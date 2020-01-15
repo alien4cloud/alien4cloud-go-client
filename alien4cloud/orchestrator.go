@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -49,17 +48,6 @@ func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orch
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to send request to get orchestrator location for orchestrator '%s'", orchestratorID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to read the content of orchestrator locations request for orchestrator '%s'", orchestratorID)
-	}
 
 	var loc Location
 	var locationstoreturn []Location
@@ -72,7 +60,8 @@ func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orch
 			} `json:"location"`
 		} `json:"data"`
 	}
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot convert the body of the get '%s' orchestrator location", orchestratorID)
 	}
 
@@ -105,17 +94,6 @@ func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orche
 	if err != nil {
 		return "", errors.Wrap(err, "Unable to send request to get orchestrator ID from its name")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read the body of the search for '%s' orchestrator", orchestratorName)
-	}
 
 	var res struct {
 		Data struct {
@@ -127,17 +105,17 @@ func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orche
 		} `json:"data"`
 	}
 
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
 		return "", errors.Wrapf(err, "Cannot convert the body of the search for '%s' orchestrator", orchestratorName)
 	}
 	if res.Data.TotalResults <= 0 {
-		return "", fmt.Errorf("'%s' orchestrator name does not exist", orchestratorName)
+		return "", errors.Errorf("'%s' orchestrator name does not exist", orchestratorName)
 	}
 
 	orchestratorID := res.Data.Data[0].ID
 	if orchestratorID == "" {
-		return orchestratorID, fmt.Errorf("no ID for '%s' orchestrator", orchestratorName)
+		return orchestratorID, errors.Errorf("no ID for '%s' orchestrator", orchestratorName)
 	}
 	return orchestratorID, nil
-
 }

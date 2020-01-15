@@ -41,13 +41,14 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = client.Login()
+	// Can use context for cancelation
+	ctx := context.Background()
+
+	err = client.Login(ctx)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// Can use context for cancelation
-	ctx := context.Background()
 	csarDef, err := client.CatalogService().UploadCSAR(ctx, f, workspace)
 	if err != nil {
 		var pErr alien4cloud.ParsingErr

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -52,9 +51,22 @@ type DeploymentService interface {
 	GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
 	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID
 	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error)
+	// Runs a workflow asynchronously returning the execution id, results will be notified using the ExecutionCallback function.
+	// Cancelling the context cancels the function that monitor the execution
+	RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error)
 	// Returns the workflow execution for the given applicationID and environmentID
 	GetLastWorkflowExecution(ctx context.Context, applicationID string, environmentID string) (*WorkflowExecution, error)
+
+	// Returns executions
+	//
+	// - deploymentID allows to search executions of a specific deployment but may be empty
+	// - query allows to search a specific execution but may be empty
+	// - from and size allows to paginate results
+	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]WorkflowExecution, FacetedSearchResult, error)
 }
+
+// ExecutionCallback is a function call by asynchronous operations when an execution reaches a terminal state
+type ExecutionCallback func(*WorkflowExecution, error)
 
 type deploymentService struct {
 	client             restClient
@@ -75,28 +87,12 @@ func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID
 		return nil, errors.Wrapf(err, "Failed to get locations matching topology for application '%s' in '%s' environment",
 			topologyID, envID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read response to request on locations matching topology '%s' in '%s' environment",
-			topologyID, envID)
-	}
 	var res struct {
 		Data []LocationMatch `json:"data"`
 	}
-
-	if err = json.Unmarshal([]byte(responseBody), &res); err != nil {
-		return nil, errors.Wrapf(err, "Cannot convert the body response to request on locations matching topology '%s' in '%s' environment",
-			topologyID, envID)
-	}
-
-	return res.Data, err
+	err = processA4CResponse(response, &res, http.StatusOK)
+	return res.Data, errors.Wrapf(err, "Cannot convert the body response to request on locations matching topology '%s' in '%s' environment",
+		topologyID, envID)
 }
 
 // DeployApplication Deploy the given application in the given environment using the given orchestrator
@@ -152,12 +148,10 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to set the location in order to deploy an application")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+	err = processA4CResponse(response, nil, http.StatusOK)
+	if err != nil {
+		return errors.Wrap(err, "Unable to send a request to set the location in order to deploy an application")
 	}
-
 	// Deploy the application a4cApplicationDeployhRequestIn
 	appDeployBody, err := json.Marshal(
 		ApplicationDeployRequest{
@@ -175,12 +169,7 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to deploy the application")
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
-	}
-
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
 
 // UpdateApplication updates an application with the latest topology version
@@ -193,15 +182,10 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 	)
 
 	if err != nil {
-return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
+		return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
 	}
 
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
 
 // GetDeploymentList returns the deployment list for the given appID and envID
@@ -217,17 +201,6 @@ func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string,
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to send request to get deployment list")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read the body when getting deployment list")
-	}
 
 	var deploymentListResponse struct {
 		Data struct {
@@ -237,11 +210,9 @@ func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string,
 			TotalResults int `json:"totalResults"`
 		} `json:"data"`
 	}
-
-	err = json.Unmarshal(responseBody, &deploymentListResponse)
-
+	err = processA4CResponse(response, &deploymentListResponse, http.StatusOK)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to unmarshal the deployment list")
+		return nil, errors.Wrapf(err, "Unable to get deployment list response for application %q environment %q", appID, envID)
 	}
 
 	var deploymentList []Deployment
@@ -266,13 +237,7 @@ func (d *deploymentService) UndeployApplication(ctx context.Context, appID strin
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to undeploy A4C application")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return getError(response.Body)
-	}
-
-	return nil
+	return processA4CResponse(response, nil, http.StatusOK)
 }
 
 // WaitUntilStateIs Waits until the state of an Alien4Cloud application is one of the given statuses as parameter and returns the actual status.
@@ -319,33 +284,13 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot send a request to get the deployment status")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read the body when getting deployment status")
-	}
 
 	var statusResponse struct {
-		Data  string `json:"data"`
-		Error *Error `json:"error,omitempty"`
+		Data string `json:"data"`
 	}
 
-	err = json.Unmarshal(responseBody, &statusResponse)
-	if err != nil {
-		return "", errors.Wrapf(err, "Unable to unmarshal the deployment status")
-	}
-
-	if statusResponse.Error != nil {
-		return "", errors.New(statusResponse.Error.Message)
-	}
-
-	return statusResponse.Data, nil
+	err = processA4CResponse(response, &statusResponse, http.StatusOK)
+	return statusResponse.Data, errors.Wrapf(err, "Unable to get deployment status for application %q environment %q", applicationID, environmentID)
 
 }
 
@@ -362,17 +307,6 @@ func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicat
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to retrieve the current deployment ID for app '%s'", applicationID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return "", errors.Wrap(err, "Cannot read the body of the active deployment monitored request")
-	}
 
 	var res struct {
 		Data struct {
@@ -382,13 +316,8 @@ func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicat
 		} `json:"data"`
 	}
 
-	err = json.Unmarshal(responseBody, &res)
-
-	if err != nil {
-		return "", errors.Wrap(err, "Unable to unmarshal content of the get deployment monitored request")
-	}
-
-	return res.Data.Deployment.ID, nil
+	err = processA4CResponse(response, &res, http.StatusOK)
+	return res.Data.Deployment.ID, errors.Wrap(err, "Unable to unmarshal content of the get deployment monitored request")
 
 }
 
@@ -405,22 +334,9 @@ func (d *deploymentService) GetNodeStatus(ctx context.Context, applicationID str
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot send a request to get node status of node '%s'", nodeName)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read the body of the node status for node '%s'", nodeName)
-	}
 
 	var nodeStatusResponse Informations
-
-	err = json.Unmarshal(responseBody, &nodeStatusResponse)
-
+	err = processA4CResponse(response, &nodeStatusResponse, http.StatusOK)
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to unmarshal node status for node '%s'", nodeName)
 	}
@@ -452,27 +368,9 @@ func (d *deploymentService) GetOutputAttributes(ctx context.Context, application
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot send a request to get output properties")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot read the body of the output properties")
-	}
-
 	var outputPropertiesResponse RuntimeTopology
-
-	err = json.Unmarshal(responseBody, &outputPropertiesResponse)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to unmarshal output properties")
-	}
-
-	return outputPropertiesResponse.Data.Topology.OutputAttributes, nil
+	err = processA4CResponse(response, &outputPropertiesResponse, http.StatusOK)
+	return outputPropertiesResponse.Data.Topology.OutputAttributes, errors.Wrap(err, "Unable to get output properties")
 
 }
 
@@ -489,24 +387,10 @@ func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationI
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot send a request to get attributes value")
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read the body of the attributes value response '%s' in '%s' environment", applicationID, environmentID)
-	}
-
 	var nodeStatusResponse Informations
-
-	err = json.Unmarshal(responseBody, &nodeStatusResponse)
-
+	err = processA4CResponse(response, &nodeStatusResponse, http.StatusOK)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to unmarshal attributes value")
+		return nil, errors.Wrap(err, "Unable to get attributes value")
 	}
 
 	if len(nodeStatusResponse.Data) == 0 {
@@ -538,48 +422,84 @@ func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationI
 	return attributesValue, nil
 }
 
-// RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
-func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error) {
+// Runs a workflow asynchronously, results will be notified using the ExecutionCallback function.
+// Cancelling the context cancels the function that monitor the execution
+func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error) {
+	response, err := d.client.doWithContext(
+		ctx,
+		"POST",
+		fmt.Sprintf("%s/applications/%s/environments/%s/workflows/%s", a4CRestAPIPrefix, a4cAppID, a4cEnvID, workflowName),
+		nil,
+		[]Header{acceptAppJSONHeader},
+	)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+	}
+	var res struct {
+		Data string `json:"data"`
+	}
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read response on running workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+	}
 
-	// The Alien4Cloud endpoint to start a workflow in Alien4Cloud is synchronous and for now, never finishes (Alien4Cloud 2.1.0-SM7).
-	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
-	defer cancelFunc()
-
+	if res.Data == "" {
+		return "", errors.Errorf("no execution id returned on run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+	}
+	// Let a4c time to register execution (500ms is not enough)
+	<-time.After(time.Second)
+	// now monitor workflow execution
 	go func() {
-		response, err := d.client.doWithContext(
-			ctx,
-			"POST",
-			fmt.Sprintf("%s/applications/%s/environments/%s/workflows/%s", a4CRestAPIPrefix, a4cAppID, a4cEnvID, workflowName),
-			nil,
-			[]Header{acceptAppJSONHeader},
-		)
-		if err == nil {
-			response.Body.Close()
+		for {
+			executions, _, err := d.GetExecutions(ctx, "", res.Data, 0, 1)
+			if err != nil {
+				callback(nil, err)
+				return
+			}
+			if len(executions) != 1 {
+				callback(nil,
+					errors.Errorf("expecting 1 execution on monitoring execution id %q for workflow %q on application %q, environment %q, but actually got %d executions", res.Data, workflowName, a4cAppID, a4cEnvID, len(executions)))
+				return
+			}
+
+			switch executions[0].Status {
+			case "SUCCEEDED", "CANCELLED", "FAILED":
+				callback(&executions[0], nil)
+				return
+			default:
+			}
+
+			select {
+			case <-ctx.Done():
+				callback(nil, ctx.Err())
+				return
+			case <-time.After(5 * time.Second):
+			}
 		}
 	}()
 
-	for {
-		// We try to get which workflow is executing. If its name is equal to the one we tried to launch, we consider, it's been launched.
-		workflowExecution, err := d.GetLastWorkflowExecution(ctx, a4cAppID, a4cEnvID)
+	return res.Data, nil
+}
 
-		if err != nil {
-			return workflowExecution, errors.Wrapf(err, "Unable to ensure the workflow '%s' has been executed on app '%s'", workflowName, a4cAppID)
-		}
+// RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
+func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error) {
+	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
+	defer cancelFunc()
 
-		if workflowExecution.DisplayWorkflowName == workflowName {
-			return workflowExecution, err
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, errors.Wrapf(ctx.Err(), "Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
-		case <-time.After(time.Second):
-		}
+	var wfExec *WorkflowExecution
+	doneCh := make(chan struct{})
+	var cbErr error
+	_, err := d.RunWorkflowAsync(ctx, a4cAppID, a4cEnvID, workflowName, func(exec *WorkflowExecution, e error) {
+		wfExec = exec
+		cbErr = e
+		close(doneCh)
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	// Timeout waiting for the workflow to be launched
-	return nil, errors.Errorf("Timeout while trying to launch the workflow '%s' for app '%s'", workflowName, a4cAppID)
-
+	<-doneCh
+	return wfExec, cbErr
 }
 
 // GetLastWorkflowExecution return a4c workflow execution for the given applicationID and environmentID
@@ -601,17 +521,6 @@ func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applic
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to get workflow status of application '%s'", applicationID)
 	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, getError(response.Body)
-	}
-
-	responseBody, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot read the response from Alien4Cloud")
-	}
 
 	var res struct {
 		Data struct {
@@ -619,12 +528,7 @@ func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applic
 		} `json:"data"`
 	}
 
-	err = json.Unmarshal(responseBody, &res)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to unmarshal content of the execution status response")
-	}
-
-	return &res.Data.Execution, nil
+	err = processA4CResponse(response, &res, http.StatusOK)
+	return &res.Data.Execution, errors.Wrap(err, "Unable to get content of the execution status response")
 
 }
