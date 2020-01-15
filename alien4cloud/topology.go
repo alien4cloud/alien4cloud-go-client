@@ -63,18 +63,6 @@ type topologyService struct {
 const (
 	// a4cUpdateNodePropertyValueOperationJavaClassName a4c class name to update node property value operation
 	a4cUpdateNodePropertyValueOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.nodetemplate.UpdateNodePropertyValueOperation"
-
-	// a4cUpdateNodePropertyValueSlurmJobOptions yorc struct name for slurm JobOptions
-	a4cUpdateNodePropertyValueSlurmJobOptions = "yorc.datatypes.slurm.JobOptions"
-
-	// a4cUpdateCapabilityPropertyValueOperationJavaClassName a4c class name to update capability value operation
-	a4cUpdateCapabilityPropertyValueOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.nodetemplate.UpdateCapabilityPropertyValueOperation"
-
-	// a4cAddNodeOperationJavaClassName a4c class name to add node operation
-	a4cAddNodeOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.nodetemplate.AddNodeOperation"
-
-	// a4cAddRelationshipOperationJavaClassName a4c class name to add relationship operation
-	a4cAddRelationshipOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.relationshiptemplate.AddRelationshipOperation"
 )
 
 // GetTopologyID returns the A4C topology ID on a given application and environment

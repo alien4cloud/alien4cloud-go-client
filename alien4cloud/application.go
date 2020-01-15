@@ -156,7 +156,7 @@ func (a *applicationService) IsApplicationExist(ctx context.Context, application
 
 	case http.StatusNotFound:
 		// to fully read response
-		processA4CResponse(response, nil, http.StatusNotFound)
+		_ = processA4CResponse(response, nil, http.StatusNotFound)
 		return false, nil
 
 	default:
@@ -197,7 +197,7 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 	case http.StatusNotFound:
 		// No application with this filter have been found
 		// to fully read response
-		processA4CResponse(response, nil, http.StatusNotFound)
+		_ = processA4CResponse(response, nil, http.StatusNotFound)
 		return nil, nil
 
 	default:
@@ -262,7 +262,7 @@ func (a *applicationService) GetApplicationByID(ctx context.Context, id string) 
 	case http.StatusNotFound:
 		// No application with this filter have been found
 		// to fully read response
-		processA4CResponse(response, nil, http.StatusNotFound)
+		_ = processA4CResponse(response, nil, http.StatusNotFound)
 		return nil, nil
 
 	default:

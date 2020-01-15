@@ -159,6 +159,10 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 			appID,
 		},
 	)
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal application deployment request")
+	}
+
 	response, err = d.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/deployment", a4CRestAPIPrefix),

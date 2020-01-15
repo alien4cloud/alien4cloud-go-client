@@ -93,19 +93,19 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 		switch {
 		case regexp.MustCompile(`.*/applications/err/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"deployment":{"id":"err"}}}`))
+			_, _ = w.Write([]byte(`{"data":{"deployment":{"id":"err"}}}`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
+			_, _ = w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
 			return
 		case regexp.MustCompile(`.*/deployments/err/status`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
 		case regexp.MustCompile(`.*/deployments/.*/status`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, ApplicationDeployed)))
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, ApplicationDeployed)))
 			return
 
 		}
@@ -173,32 +173,32 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 			return
 		case regexp.MustCompile(`.*/applications/emptyExecID/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":""}`))
+			_, _ = w.Write([]byte(`{"data":""}`))
 			return
 		case regexp.MustCompile(`.*/applications/badExecID/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":`))
+			_, _ = w.Write([]byte(`{"data":`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
 			matches := regexp.MustCompile(`.*/applications/(.*)/environments/.*/workflows/.*`).FindStringSubmatch(r.URL.Path)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, matches[1])))
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, matches[1])))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "execCancel":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "badExecSearch":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"i`))
+			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"i`))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "noExecSearch":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":[],"data":[],"queryDuration":1,"totalResults":0,"from":0,"to":0,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"types":[],"data":[],"queryDuration":1,"totalResults":0,"from":0,"to":0,"facets":null},"error":null}`))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
 			return
 		}
 

@@ -78,7 +78,7 @@ func Test_topologyService_AddWorkflowActivity(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			var res struct {
@@ -91,7 +91,7 @@ func Test_topologyService_AddWorkflowActivity(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		}
 
@@ -165,7 +165,7 @@ func Test_topologyService_CreateAndDeleteWorkflow(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			var res struct {
@@ -178,7 +178,7 @@ func Test_topologyService_CreateAndDeleteWorkflow(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		}
 		// Should not go there
