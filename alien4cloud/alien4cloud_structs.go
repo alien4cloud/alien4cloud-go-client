@@ -291,6 +291,29 @@ type Deployment struct {
 	WorkflowExecutions       interface{} `json:"workflowExecutions"`
 }
 
+// PropertyValue holds the definition of a property value
+type PropertyValue struct {
+	Value      interface{} `json:"value"`
+	Definition bool        `json:"definition,omitempty"`
+}
+
+// Definition of the type of an element in a list
+type EntrySchema struct {
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+}
+
+// PropertyDefinition holds the definition of a Topology property
+type PropertyDefinition struct {
+	Type         string        `json:"type"`
+	EntrySchema  EntrySchema   `json:"entrySchema,omitempty"`
+	Required     bool          `json:"required,omitempty"`
+	DefaultValue PropertyValue `json:"defaultValue,omitempty"`
+	Description  string        `json:"description,omitempty"`
+	SuggestionId string        `json:"suggestionId,omitempty"`
+	Password     bool          `json:"password,omitempty"`
+}
+
 // Topology is the representation a topology template
 type Topology struct {
 	Data struct {
@@ -298,9 +321,10 @@ type Topology struct {
 		RelationshipTypes map[string]relationshipType `json:"relationshipTypes"`
 		CapabilityTypes   map[string]capabilityType   `json:"capabilityTypes"`
 		Topology          struct {
-			ArchiveName    string                  `json:"archiveName"`
-			ArchiveVersion string                  `json:"archiveVersion"`
-			NodeTemplates  map[string]nodeTemplate `json:"nodeTemplates"`
+			ArchiveName    string                        `json:"archiveName"`
+			ArchiveVersion string                        `json:"archiveVersion"`
+			NodeTemplates  map[string]nodeTemplate       `json:"nodeTemplates"`
+			Inputs         map[string]PropertyDefinition `json:"inputs"`
 		} `json:"topology"`
 	} `json:"data"`
 }
