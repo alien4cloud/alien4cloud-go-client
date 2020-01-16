@@ -19,10 +19,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -230,23 +231,16 @@ func (d *deploymentService) UploadDeploymentInputArtifact(ctx context.Context,
 	if err != nil {
 		return errors.Wrapf(err, "Failed to open file to upload %s", filePath)
 	}
-	content, err := ioutil.ReadAll(f)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to reaf file %s", filePath)
-	}
-	fStat, err := f.Stat()
-	if err != nil {
-		return errors.Wrapf(err, "Failed to get stat for file %s", filePath)
-	}
-	f.Close()
+	defer f.Close()
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", fStat.Name())
+	fName := filepath.Base(filePath)
+	part, err := writer.CreateFormFile("file", fName)
 	if err != nil {
-		return errors.Wrapf(err, "Failed to create from file for %s", fStat.Name())
+		return errors.Wrapf(err, "Failed to create from file for %s", fName)
 	}
-	_, err = part.Write(content)
+	_, err = io.Copy(part, f)
 	if err != nil {
 		return err
 	}
