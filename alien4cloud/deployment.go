@@ -33,6 +33,8 @@ type DeploymentService interface {
 	DeployApplication(ctx context.Context, appID string, envID string, location string) error
 	// Updates an application with the latest topology version
 	UpdateApplication(ctx context.Context, appID, envID string) error
+	// Updates inputs of a deployment topology
+	UpdateDeploymentSetup(ctx context.Context, appID, envID string, request UpdateDeploymentTopologyRequest) error
 	// Returns the deployment list for the given appID and envID
 	GetDeploymentList(ctx context.Context, appID string, envID string) ([]Deployment, error)
 	// Undeploys an application
@@ -187,6 +189,27 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
+	}
+
+	return processA4CResponse(response, nil, http.StatusOK)
+}
+
+// UpdateDeploymentSetup updates inputs of a deployment topology
+func (d *deploymentService) UpdateDeploymentSetup(ctx context.Context, appID, envID string,
+	request UpdateDeploymentTopologyRequest) error {
+
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal update deployment topology request")
+	}
+	response, err := d.client.doWithContext(ctx, "PUT",
+		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology", a4CRestAPIPrefix, appID, envID),
+		[]byte(string(requestBody)),
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+	)
+
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send a request to deployment topology for application %s", appID)
 	}
 
 	return processA4CResponse(response, nil, http.StatusOK)

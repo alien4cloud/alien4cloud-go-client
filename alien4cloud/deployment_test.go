@@ -16,7 +16,9 @@ package alien4cloud
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -265,4 +267,72 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 	defer cancelFn()
 	_, err = d.RunWorkflow(cancelableCtx, "execCancel", "envID", "wf", 50*time.Millisecond)
 	assert.ErrorContains(t, err, "context deadline exceeded")
+}
+
+func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			var req UpdateDeploymentTopologyRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+			defer r.Body.Close()
+			s := string(rb)
+			t.Logf("request: %s", s)
+
+			err = json.Unmarshal(rb, &req)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+			assert.Equal(t, req.InputProperties["testInputProp"], "testValue")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":""}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx                context.Context
+		appID              string
+		envID              string
+		inputPropertyName  string
+		inputPropertyValue string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"UpdateInput", args{context.Background(), "normal", "envID", "testInputProp", "testValue"}, false},
+		{"UpdateError", args{context.Background(), "error", "envID", "inputPropErr", "valErr"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			err := d.UpdateDeploymentSetup(tt.args.ctx, tt.args.appID, tt.args.envID,
+				UpdateDeploymentTopologyRequest{
+					InputProperties: map[string]interface{}{
+						tt.args.inputPropertyName: tt.args.inputPropertyValue,
+					},
+				})
+			if err != nil && !tt.wantErr {
+				t.Errorf("deploymentService.UpdateDeploymentSetup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
 }

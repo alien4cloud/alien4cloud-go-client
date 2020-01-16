@@ -303,7 +303,7 @@ type EntrySchema struct {
 	Description string `json:"description,omitempty"`
 }
 
-// PropertyDefinition holds the definition of a Topology property
+// PropertyDefinition holds the definition of a Topology input property
 type PropertyDefinition struct {
 	Type         string        `json:"type"`
 	EntrySchema  EntrySchema   `json:"entrySchema,omitempty"`
@@ -312,6 +312,21 @@ type PropertyDefinition struct {
 	Description  string        `json:"description,omitempty"`
 	SuggestionId string        `json:"suggestionId,omitempty"`
 	Password     bool          `json:"password,omitempty"`
+}
+
+// DeploymentArtifact holds properties of an artifact (file) input definition in topology
+type DeploymentArtifact struct {
+	ArtifactType         string                 `json:"artifactType"`
+	ArtifactRef          string                 `json:"artifactRef,omitempty"`
+	ArtifactRepository   string                 `json:"artifactRepository,omitempty"`
+	ArchiveName          string                 `json:"archiveName,omitempty"`
+	ArchiveVersion       string                 `json:"archiveVersion,omitempty"`
+	RepositoryURL        string                 `json:"repositoryURL,omitempty"`
+	RepositoryCredential map[string]interface{} `json:"repositoryCredential,omitempty"`
+	RepositoryName       string                 `json:"repositoryName,omitempty"`
+	ArtifactName         string                 `json:"artifactName,omitempty"`
+	DeployPath           string                 `json:"deployPath,omitempty"`
+	Description          string                 `json:"description,omitempty"`
 }
 
 // Topology is the representation a topology template
@@ -324,9 +339,17 @@ type Topology struct {
 			ArchiveName    string                        `json:"archiveName"`
 			ArchiveVersion string                        `json:"archiveVersion"`
 			NodeTemplates  map[string]nodeTemplate       `json:"nodeTemplates"`
-			Inputs         map[string]PropertyDefinition `json:"inputs"`
+			Inputs         map[string]PropertyDefinition `json:"inputs,omitempty"`
+			InputArtifacts map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
 		} `json:"topology"`
 	} `json:"data"`
+}
+
+// UpdateDeploymentTopologyRequest holds a request to update inputs of a deployment
+// topology
+type UpdateDeploymentTopologyRequest struct {
+	InputProperties              map[string]interface{} `json:"inputProperties,omitempty"`
+	ProviderDeploymentProperties map[string]string      `json:"providerDeploymentProperties,omitempty"`
 }
 
 // ApplicationCreateRequest is the representation of a request to create an application from a topology template
