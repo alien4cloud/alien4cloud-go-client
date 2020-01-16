@@ -297,7 +297,7 @@ type PropertyValue struct {
 	Definition bool        `json:"definition,omitempty"`
 }
 
-// Definition of the type of an element in a list
+// EntrySchema holds the definition of the type of an element in a list
 type EntrySchema struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
@@ -310,7 +310,7 @@ type PropertyDefinition struct {
 	Required     bool          `json:"required,omitempty"`
 	DefaultValue PropertyValue `json:"defaultValue,omitempty"`
 	Description  string        `json:"description,omitempty"`
-	SuggestionId string        `json:"suggestionId,omitempty"`
+	SuggestionID string        `json:"suggestionId,omitempty"`
 	Password     bool          `json:"password,omitempty"`
 }
 
