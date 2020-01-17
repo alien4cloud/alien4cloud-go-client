@@ -372,12 +372,17 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 		content           string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name      string
+		args      args
+		wantErr   bool
+		wrongFile bool
 	}{
-		{"UpdateInputArtifact", args{context.Background(), "normal", "envID", "testArtifact", "testContent"}, false},
-		{"UpdateInputArtifactError", args{context.Background(), "error", "envID", "testArtifact", "testError"}, true},
+		{"TestUpdateInputArtifact", args{context.Background(), "normal", "envID",
+			"testArtifact", "testContent"}, false, false},
+		{"TestUpdateInputArtifactError", args{context.Background(), "error", "envID",
+			"testArtifact", "testError"}, true, false},
+		{"TestUpdateInputArtifactWrongPath", args{context.Background(), "error", "envID",
+			"testArtifact", "testError"}, true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -386,7 +391,12 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
 			}
 
-			f, err := ioutil.TempFile("", "test"+tt.name)
+			f, err := ioutil.TempFile("", tt.name)
+			artifactPath := f.Name()
+			if tt.wrongFile {
+				artifactPath = "badFile"
+			}
+
 			assert.NilError(t, err, "Failed to create a file to upload")
 			_, err = f.Write([]byte(tt.args.content))
 			_ = f.Sync()
@@ -394,7 +404,8 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 			defer os.Remove(f.Name())
 			assert.NilError(t, err, "Failed to write to file to upload")
 
-			err = d.UploadDeploymentInputArtifact(tt.args.ctx, tt.args.appID, tt.args.envID, tt.args.inputArtifactName, f.Name())
+			err = d.UploadDeploymentInputArtifact(tt.args.ctx, tt.args.appID, tt.args.envID,
+				tt.args.inputArtifactName, artifactPath)
 			if err != nil && !tt.wantErr {
 				t.Errorf("deploymentService.UpdateDeploymentSetup() error = %v, wantErr %v", err, tt.wantErr)
 			}
