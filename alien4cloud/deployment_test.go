@@ -301,6 +301,8 @@ func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
 		t.Errorf("Unexpected call for request %+v", r)
 	}))
 
+	defer ts.Close()
+
 	type args struct {
 		ctx                context.Context
 		appID              string
@@ -363,6 +365,8 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 		// Should not go there
 		t.Errorf("Unexpected call for request %+v", r)
 	}))
+
+	defer ts.Close()
 
 	type args struct {
 		ctx               context.Context

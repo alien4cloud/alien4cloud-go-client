@@ -44,6 +44,8 @@ func Test_applicationService_IsApplicationExists(t *testing.T) {
 		t.Errorf("Unexpected call for request %+v", r)
 	}))
 
+	defer ts.Close()
+
 	type args struct {
 		ctx   context.Context
 		appID string
@@ -73,7 +75,8 @@ func Test_applicationService_IsApplicationExists(t *testing.T) {
 }
 
 func Test_applicationService_GetApplicationsID(t *testing.T) {
-	ts := getHTTPServerTestApplicationSearch(t)
+	ts := newHTTPServerTestApplicationSearch(t)
+	defer ts.Close()
 	type args struct {
 		ctx   context.Context
 		appID string
@@ -103,7 +106,8 @@ func Test_applicationService_GetApplicationsID(t *testing.T) {
 }
 
 func Test_applicationService_GetApplicationByID(t *testing.T) {
-	ts := getHTTPServerTestApplicationSearch(t)
+	ts := newHTTPServerTestApplicationSearch(t)
+	defer ts.Close()
 	type args struct {
 		ctx   context.Context
 		appID string
@@ -132,7 +136,7 @@ func Test_applicationService_GetApplicationByID(t *testing.T) {
 	}
 }
 
-func getHTTPServerTestApplicationSearch(t *testing.T) *httptest.Server {
+func newHTTPServerTestApplicationSearch(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if regexp.MustCompile(`.*/applications`).Match([]byte(r.URL.Path)) {
 
