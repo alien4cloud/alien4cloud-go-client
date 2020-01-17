@@ -272,8 +272,6 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 }
 
 func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
-	closeCh := make(chan struct{})
-	defer close(closeCh)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
@@ -340,8 +338,6 @@ func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
 }
 
 func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
-	closeCh := make(chan struct{})
-	defer close(closeCh)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology/inputArtifacts/.*/upload`).Match([]byte(r.URL.Path)):
@@ -391,11 +387,12 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 			}
 
 			f, err := ioutil.TempFile("", "test"+tt.name)
+			assert.NilError(t, err, "Failed to create a file to upload")
 			_, err = f.Write([]byte(tt.args.content))
 			_ = f.Sync()
 			_ = f.Close()
 			defer os.Remove(f.Name())
-			assert.NilError(t, err, "Failed to create a file to upload")
+			assert.NilError(t, err, "Failed to write to file to upload")
 
 			err = d.UploadDeploymentInputArtifact(tt.args.ctx, tt.args.appID, tt.args.envID, tt.args.inputArtifactName, f.Name())
 			if err != nil && !tt.wantErr {
