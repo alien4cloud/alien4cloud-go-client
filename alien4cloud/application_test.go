@@ -16,9 +16,12 @@ package alien4cloud
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -32,7 +35,6 @@ func Test_applicationService_IsApplicationExists(t *testing.T) {
 			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
 		case regexp.MustCompile(`.*/applications/existing`).Match([]byte(r.URL.Path)):
-			// wait until test are finish to simulate long running op that will be cancelled
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"data":""}`))
 			return
@@ -68,4 +70,96 @@ func Test_applicationService_IsApplicationExists(t *testing.T) {
 			assert.Equal(t, tt.exists, found, "Unexpected result for IsApplicationExist %s", tt.args.appID)
 		})
 	}
+}
+
+func Test_applicationService_GetApplicationsID(t *testing.T) {
+	ts := getHTTPServerTestApplicationSearch(t)
+	type args struct {
+		ctx   context.Context
+		appID string
+	}
+	tests := []struct {
+		name   string
+		args   args
+		number int
+	}{
+		{"ExistingApp", args{context.Background(), "existingApp"}, 1},
+		{"UnknownApp", args{context.Background(), "unknownApp"}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			results, err := a.GetApplicationsID(tt.args.ctx, tt.args.appID)
+			if err != nil {
+				t.Errorf("applicationService.GetApplicationsID() error = %v", err)
+			}
+			assert.Equal(t, len(results), tt.number, "Unexpected number of results for GetApplicationsID")
+		})
+	}
+}
+
+func Test_applicationService_GetApplicationByID(t *testing.T) {
+	ts := getHTTPServerTestApplicationSearch(t)
+	type args struct {
+		ctx   context.Context
+		appID string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantResult bool
+	}{
+		{"ExistingApp", args{context.Background(), "existingApp"}, true},
+		{"UnknownApp", args{context.Background(), "unknownApp"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			appFound, err := a.GetApplicationByID(tt.args.ctx, tt.args.appID)
+			if err != nil {
+				t.Errorf("applicationService.GetApplicationByID() error = %v", err)
+			}
+			assert.Equal(t, appFound != nil, tt.wantResult, "Unexpected result for GetApplicationByID()")
+		})
+	}
+}
+
+func getHTTPServerTestApplicationSearch(t *testing.T) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if regexp.MustCompile(`.*/applications`).Match([]byte(r.URL.Path)) {
+
+			var searchReq searchRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+			defer r.Body.Close()
+			s := string(rb)
+			t.Logf("request: %s", s)
+
+			err = json.Unmarshal(rb, &searchReq)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+			if strings.Contains(searchReq.Query, "existingApp") {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"data":{"types":["Application"],"data":[{"id":"existingApp"}],"totalResults":1}}`))
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			}
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
 }
