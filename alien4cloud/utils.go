@@ -69,7 +69,7 @@ func processA4CResponse(response *http.Response, expectedData interface{}, expec
 		}
 		err = json.Unmarshal(responseBody, &res)
 		if err != nil {
-			return errors.Wrap(err, "Unable to unmarshal content of the Alien4Cloud response")
+			return errors.Wrap(err, "Unable to unmarshal content of the Alien4Cloud error response")
 		}
 		return errors.New(res.Error.Message)
 	}

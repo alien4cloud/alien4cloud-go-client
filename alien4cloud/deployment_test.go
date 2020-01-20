@@ -16,10 +16,14 @@ package alien4cloud
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,19 +97,19 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 		switch {
 		case regexp.MustCompile(`.*/applications/err/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"deployment":{"id":"err"}}}`))
+			_, _ = w.Write([]byte(`{"data":{"deployment":{"id":"err"}}}`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
+			_, _ = w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
 			return
 		case regexp.MustCompile(`.*/deployments/err/status`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
 		case regexp.MustCompile(`.*/deployments/.*/status`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, ApplicationDeployed)))
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, ApplicationDeployed)))
 			return
 
 		}
@@ -173,32 +177,32 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 			return
 		case regexp.MustCompile(`.*/applications/emptyExecID/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":""}`))
+			_, _ = w.Write([]byte(`{"data":""}`))
 			return
 		case regexp.MustCompile(`.*/applications/badExecID/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":`))
+			_, _ = w.Write([]byte(`{"data":`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/workflows/.*`).Match([]byte(r.URL.Path)):
 			matches := regexp.MustCompile(`.*/applications/(.*)/environments/.*/workflows/.*`).FindStringSubmatch(r.URL.Path)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, matches[1])))
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, matches[1])))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "execCancel":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "badExecSearch":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"i`))
+			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"i`))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "noExecSearch":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":[],"data":[],"queryDuration":1,"totalResults":0,"from":0,"to":0,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"types":[],"data":[],"queryDuration":1,"totalResults":0,"from":0,"to":0,"facets":null},"error":null}`))
 			return
 		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
 			return
 		}
 
@@ -265,4 +269,151 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 	defer cancelFn()
 	_, err = d.RunWorkflow(cancelableCtx, "execCancel", "envID", "wf", 50*time.Millisecond)
 	assert.ErrorContains(t, err, "context deadline exceeded")
+}
+
+func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			var req UpdateDeploymentTopologyRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+			defer r.Body.Close()
+			s := string(rb)
+			t.Logf("request: %s", s)
+
+			err = json.Unmarshal(rb, &req)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+			assert.Equal(t, req.InputProperties["testInputProp"], "testValue")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":""}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+
+	type args struct {
+		ctx                context.Context
+		appID              string
+		envID              string
+		inputPropertyName  string
+		inputPropertyValue string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"UpdateInput", args{context.Background(), "normal", "envID", "testInputProp", "testValue"}, false},
+		{"UpdateError", args{context.Background(), "error", "envID", "inputPropErr", "valErr"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			err := d.UpdateDeploymentTopology(tt.args.ctx, tt.args.appID, tt.args.envID,
+				UpdateDeploymentTopologyRequest{
+					InputProperties: map[string]interface{}{
+						tt.args.inputPropertyName: tt.args.inputPropertyValue,
+					},
+				})
+			if err != nil && !tt.wantErr {
+				t.Errorf("deploymentService.UpdateDeploymentTopology() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
+}
+
+func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology/inputArtifacts/.*/upload`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment-topology/inputArtifacts/.*/upload`).Match([]byte(r.URL.Path)):
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+			defer r.Body.Close()
+			s := string(rb)
+			t.Logf("request: %s", s)
+
+			if !strings.Contains(s, "testContent") {
+				t.Errorf("Failed to find expected content in uploaded file")
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":""}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+
+	type args struct {
+		ctx               context.Context
+		appID             string
+		envID             string
+		inputArtifactName string
+		content           string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantErr   bool
+		wrongFile bool
+	}{
+		{"TestUpdateInputArtifact", args{context.Background(), "normal", "envID",
+			"testArtifact", "testContent"}, false, false},
+		{"TestUpdateInputArtifactError", args{context.Background(), "error", "envID",
+			"testArtifact", "testError"}, true, false},
+		{"TestUpdateInputArtifactWrongPath", args{context.Background(), "error", "envID",
+			"testArtifact", "testError"}, true, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			f, err := ioutil.TempFile("", tt.name)
+			artifactPath := f.Name()
+			if tt.wrongFile {
+				artifactPath = "badFile"
+			}
+
+			assert.NilError(t, err, "Failed to create a file to upload")
+			_, err = f.Write([]byte(tt.args.content))
+			_ = f.Sync()
+			_ = f.Close()
+			defer os.Remove(f.Name())
+			assert.NilError(t, err, "Failed to write to file to upload")
+
+			err = d.UploadDeploymentInputArtifact(tt.args.ctx, tt.args.appID, tt.args.envID,
+				tt.args.inputArtifactName, artifactPath)
+			if err != nil && !tt.wantErr {
+				t.Errorf("deploymentService.UpdateDeploymentTopology() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
 }

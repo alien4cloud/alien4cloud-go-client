@@ -61,11 +61,11 @@ func Test_topologyService_AddPolicy(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		case regexp.MustCompile(`.*/applications/notfound/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			var res struct {
@@ -78,7 +78,7 @@ func Test_topologyService_AddPolicy(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		}
 
@@ -161,11 +161,11 @@ func Test_topologyService_DeletePolicy(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		case regexp.MustCompile(`.*/applications/notfound/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			var res struct {
@@ -178,7 +178,7 @@ func Test_topologyService_DeletePolicy(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write(b)
+			_, _ = w.Write(b)
 			return
 		}
 

@@ -15,10 +15,15 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,6 +38,10 @@ type DeploymentService interface {
 	DeployApplication(ctx context.Context, appID string, envID string, location string) error
 	// Updates an application with the latest topology version
 	UpdateApplication(ctx context.Context, appID, envID string) error
+	// Updates inputs of a deployment topology
+	UpdateDeploymentTopology(ctx context.Context, appID, envID string, request UpdateDeploymentTopologyRequest) error
+	// Uploads an input artifact
+	UploadDeploymentInputArtifact(ctx context.Context, appID, envID, inputArtifact, filePath string) error
 	// Returns the deployment list for the given appID and envID
 	GetDeploymentList(ctx context.Context, appID string, envID string) ([]Deployment, error)
 	// Undeploys an application
@@ -159,6 +168,10 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 			appID,
 		},
 	)
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal application deployment request")
+	}
+
 	response, err = d.client.doWithContext(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/deployment", a4CRestAPIPrefix),
@@ -183,6 +196,66 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
+	}
+
+	return processA4CResponse(response, nil, http.StatusOK)
+}
+
+// UpdateDeploymentTopology updates inputs of a deployment topology
+func (d *deploymentService) UpdateDeploymentTopology(ctx context.Context, appID, envID string,
+	request UpdateDeploymentTopologyRequest) error {
+
+	requestBody, _ := json.Marshal(request)
+	response, err := d.client.doWithContext(ctx, "PUT",
+		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology", a4CRestAPIPrefix, appID, envID),
+		[]byte(string(requestBody)),
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+	)
+
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send a request to deployment topology for application %s", appID)
+	}
+
+	return processA4CResponse(response, nil, http.StatusOK)
+}
+
+// Uploads an input artifact
+
+func (d *deploymentService) UploadDeploymentInputArtifact(ctx context.Context,
+	appID, envID, inputArtifact, filePath string) error {
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to open file to upload %s", filePath)
+	}
+	defer f.Close()
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	fName := filepath.Base(filePath)
+	part, err := writer.CreateFormFile("file", fName)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to create from file for %s", fName)
+	}
+	_, err = io.Copy(part, f)
+	if err != nil {
+		return err
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+
+	response, err := d.client.doWithContext(ctx, "POST",
+		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology/inputArtifacts/%s/upload",
+			a4CRestAPIPrefix, appID, envID, inputArtifact),
+		body.Bytes(),
+		[]Header{Header{"Content-Type", writer.FormDataContentType()}, acceptAppJSONHeader},
+	)
+
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send a request to deployment topology for application %s", appID)
 	}
 
 	return processA4CResponse(response, nil, http.StatusOK)

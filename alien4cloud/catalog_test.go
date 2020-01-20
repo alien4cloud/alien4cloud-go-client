@@ -58,7 +58,11 @@ func Test_catalogService_UploadCSAR(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		_, err = w.Write(b)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}))
 	defer ts.Close()
 

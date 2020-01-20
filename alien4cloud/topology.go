@@ -31,6 +31,8 @@ type TopologyService interface {
 	GetTopologyID(ctx context.Context, appID string, envID string) (string, error)
 	// Returns the topology template ID for the given topologyName
 	GetTopologyTemplateIDByName(ctx context.Context, topologyName string) (string, error)
+	// Returns Topology details for a given application and environment
+	GetTopology(ctx context.Context, appID string, envID string) (*Topology, error)
 	// Updates the property value (type string) of a component of an application
 	UpdateComponentProperty(ctx context.Context, a4cCtx *TopologyEditorContext, componentName string, propertyName string, propertyValue string) error
 	// Updates the property value (type tosca complex) of a component of an application
@@ -63,18 +65,6 @@ type topologyService struct {
 const (
 	// a4cUpdateNodePropertyValueOperationJavaClassName a4c class name to update node property value operation
 	a4cUpdateNodePropertyValueOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.nodetemplate.UpdateNodePropertyValueOperation"
-
-	// a4cUpdateNodePropertyValueSlurmJobOptions yorc struct name for slurm JobOptions
-	a4cUpdateNodePropertyValueSlurmJobOptions = "yorc.datatypes.slurm.JobOptions"
-
-	// a4cUpdateCapabilityPropertyValueOperationJavaClassName a4c class name to update capability value operation
-	a4cUpdateCapabilityPropertyValueOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.nodetemplate.UpdateCapabilityPropertyValueOperation"
-
-	// a4cAddNodeOperationJavaClassName a4c class name to add node operation
-	a4cAddNodeOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.nodetemplate.AddNodeOperation"
-
-	// a4cAddRelationshipOperationJavaClassName a4c class name to add relationship operation
-	a4cAddRelationshipOperationJavaClassName = "org.alien4cloud.tosca.editor.operations.relationshiptemplate.AddRelationshipOperation"
 )
 
 // GetTopologyID returns the A4C topology ID on a given application and environment
@@ -192,8 +182,8 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 	return nil
 }
 
-// getTopology method returns the A4C topology on a given application and environment
-func (t *topologyService) getTopology(ctx context.Context, appID string, envID string) (*Topology, error) {
+// GetTopology method returns topology details for a given application and environment
+func (t *topologyService) GetTopology(ctx context.Context, appID string, envID string) (*Topology, error) {
 
 	a4cTopologyID, err := t.GetTopologyID(ctx, appID, envID)
 
@@ -336,7 +326,7 @@ func (t *topologyService) AddNodeInA4CTopology(ctx context.Context, a4cCtx *Topo
 		return errors.New("Context object must be defined")
 	}
 
-	a4cTopology, err := t.getTopology(ctx, a4cCtx.AppID, a4cCtx.EnvID)
+	a4cTopology, err := t.GetTopology(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
@@ -394,7 +384,7 @@ func (t *topologyService) AddRelationship(ctx context.Context, a4cCtx *TopologyE
 	var relationshipDef relationshipType
 	var capabilityDef componentCapability
 
-	a4cTopology, err := t.getTopology(ctx, a4cCtx.AppID, a4cCtx.EnvID)
+	a4cTopology, err := t.GetTopology(ctx, a4cCtx.AppID, a4cCtx.EnvID)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", a4cCtx.AppID, a4cCtx.EnvID)
