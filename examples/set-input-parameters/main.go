@@ -73,13 +73,13 @@ func main() {
 		log.Panic(err)
 	}
 
-	inputProperties := topology.Data.Topology.Inputs
-
-	if _, ok := inputProperties[propName]; !ok {
-		log.Panicf("No such input property %s defined in application", propName)
-	}
-
 	if propName != "" {
+		inputProperties := topology.Data.Topology.Inputs
+
+		if _, ok := inputProperties[propName]; !ok {
+			log.Panicf("No such input property %s defined in application", propName)
+		}
+
 		updateRequest := alien4cloud.UpdateDeploymentTopologyRequest{
 			InputProperties: map[string]interface{}{
 				propName: propValue,
@@ -93,6 +93,12 @@ func main() {
 	}
 
 	if artifactName != "" {
+
+		inputArtifacts := topology.Data.Topology.InputArtifacts
+
+		if _, ok := inputArtifacts[artifactName]; !ok {
+			log.Panicf("No such input artifact %s defined in application", artifactName)
+		}
 
 		err = client.DeploymentService().UploadDeploymentInputArtifact(ctx, appName, envID, artifactName, artifactFilePath)
 		if err != nil {
