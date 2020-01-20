@@ -325,14 +325,14 @@ func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
 				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
 			}
 
-			err := d.UpdateDeploymentSetup(tt.args.ctx, tt.args.appID, tt.args.envID,
+			err := d.UpdateDeploymentTopology(tt.args.ctx, tt.args.appID, tt.args.envID,
 				UpdateDeploymentTopologyRequest{
 					InputProperties: map[string]interface{}{
 						tt.args.inputPropertyName: tt.args.inputPropertyValue,
 					},
 				})
 			if err != nil && !tt.wantErr {
-				t.Errorf("deploymentService.UpdateDeploymentSetup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("deploymentService.UpdateDeploymentTopology() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -411,7 +411,7 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 			err = d.UploadDeploymentInputArtifact(tt.args.ctx, tt.args.appID, tt.args.envID,
 				tt.args.inputArtifactName, artifactPath)
 			if err != nil && !tt.wantErr {
-				t.Errorf("deploymentService.UpdateDeploymentSetup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("deploymentService.UpdateDeploymentTopology() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

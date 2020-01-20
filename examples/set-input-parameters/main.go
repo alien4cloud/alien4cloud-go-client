@@ -86,7 +86,7 @@ func main() {
 			},
 		}
 
-		err = client.DeploymentService().UpdateDeploymentSetup(ctx, appName, envID, updateRequest)
+		err = client.DeploymentService().UpdateDeploymentTopology(ctx, appName, envID, updateRequest)
 		if err != nil {
 			log.Panic(err)
 		}

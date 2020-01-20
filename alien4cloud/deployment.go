@@ -39,7 +39,7 @@ type DeploymentService interface {
 	// Updates an application with the latest topology version
 	UpdateApplication(ctx context.Context, appID, envID string) error
 	// Updates inputs of a deployment topology
-	UpdateDeploymentSetup(ctx context.Context, appID, envID string, request UpdateDeploymentTopologyRequest) error
+	UpdateDeploymentTopology(ctx context.Context, appID, envID string, request UpdateDeploymentTopologyRequest) error
 	// Uploads an input artifact
 	UploadDeploymentInputArtifact(ctx context.Context, appID, envID, inputArtifact, filePath string) error
 	// Returns the deployment list for the given appID and envID
@@ -201,8 +201,8 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 	return processA4CResponse(response, nil, http.StatusOK)
 }
 
-// UpdateDeploymentSetup updates inputs of a deployment topology
-func (d *deploymentService) UpdateDeploymentSetup(ctx context.Context, appID, envID string,
+// UpdateDeploymentTopology updates inputs of a deployment topology
+func (d *deploymentService) UpdateDeploymentTopology(ctx context.Context, appID, envID string,
 	request UpdateDeploymentTopologyRequest) error {
 
 	requestBody, _ := json.Marshal(request)
