@@ -1,4 +1,4 @@
-// Copyright 2019 Bull S.A.S. Atos Technologies - Bull, Rue Jean Jaures, B.P.68, 78340, Les Clayes-sous-Bois, France.
+// Copyright 2020 Bull S.A.S. Atos Technologies - Bull, Rue Jean Jaures, B.P.68, 78340, Les Clayes-sous-Bois, France.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 // Command arguments
-var url, user, password, appName, propName, propValue string
+var url, user, password, appName, propName, propValue, artifactName, artifactFilePath string
 
 func init() {
 	// Initialize command arguments
@@ -32,8 +32,10 @@ func init() {
 	flag.StringVar(&user, "user", "admin", "User")
 	flag.StringVar(&password, "password", "changeme", "Password")
 	flag.StringVar(&appName, "app", "", "Name of the application to create")
-	flag.StringVar(&propName, "property", "", "Name of the property to set")
-	flag.StringVar(&propValue, "value", "", "Value of the property to set")
+	flag.StringVar(&propName, "property", "", "Name of the input property to set")
+	flag.StringVar(&propValue, "value", "", "Value of the input property to set")
+	flag.StringVar(&artifactName, "artifact", "", "Name of the input artifact to set")
+	flag.StringVar(&artifactFilePath, "file", "", "Path of the input artifact file")
 }
 
 func main() {
@@ -67,6 +69,9 @@ func main() {
 
 	// Get input propoerties
 	topology, err := client.TopologyService().GetTopology(ctx, appName, envID)
+	if err != nil {
+		log.Panic(err)
+	}
 
 	inputProperties := topology.Data.Topology.Inputs
 
@@ -74,14 +79,24 @@ func main() {
 		log.Panicf("No such input property %s defined in application", propName)
 	}
 
-	updateRequest := alien4cloud.UpdateDeploymentTopologyRequest{
-		InputProperties: map[string]interface{}{
-			propName: propValue,
-		},
+	if propName != "" {
+		updateRequest := alien4cloud.UpdateDeploymentTopologyRequest{
+			InputProperties: map[string]interface{}{
+				propName: propValue,
+			},
+		}
+
+		err = client.DeploymentService().UpdateDeploymentSetup(ctx, appName, envID, updateRequest)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
-	err = client.DeploymentService().UpdateDeploymentSetup(ctx, appName, envID, updateRequest)
-	if err != nil {
-		log.Panic(err)
+	if artifactName != "" {
+
+		err = client.DeploymentService().UploadDeploymentInputArtifact(ctx, appName, envID, artifactName, artifactFilePath)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 }

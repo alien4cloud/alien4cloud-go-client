@@ -205,10 +205,7 @@ func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID 
 func (d *deploymentService) UpdateDeploymentSetup(ctx context.Context, appID, envID string,
 	request UpdateDeploymentTopologyRequest) error {
 
-	requestBody, err := json.Marshal(request)
-	if err != nil {
-		return errors.Wrap(err, "Failed to marshal update deployment topology request")
-	}
+	requestBody, _ := json.Marshal(request)
 	response, err := d.client.doWithContext(ctx, "PUT",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology", a4CRestAPIPrefix, appID, envID),
 		[]byte(string(requestBody)),
