@@ -34,7 +34,7 @@ For example :
                 -value myval
 ```
 
-To set an application input artifact, run this example providing in arguments:
+To set an application input artifact, run this example, providing in arguments:
 * the Alien4Cloud URL
 * credentials of the user who has deployed the application
 * the name of the application
