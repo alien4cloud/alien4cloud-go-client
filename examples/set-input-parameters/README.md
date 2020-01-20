@@ -47,6 +47,6 @@ For example :
                 -user myuser \
                 -password mypasswd \
                 -app MyApp \
-                -artifact myp \
+                -artifact myartifact \
                 -file /home/user/myfile.txt
 ```
