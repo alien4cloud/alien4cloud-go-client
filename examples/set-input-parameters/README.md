@@ -1,5 +1,4 @@
-# Run a workflow
-
+# Set input properties and input artifacts
 This example shows how the Alien4Cloud go client can be used to set an application
 input property or input artifact.
 
