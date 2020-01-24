@@ -329,6 +329,12 @@ type DeploymentArtifact struct {
 	Description          string                 `json:"description,omitempty"`
 }
 
+type ListTopologiesCreateRequest struct {
+	from 	int			`json:"from"`
+	query	string		`json:"query"`
+	size	int			`json:"size"`
+}
+
 // Topology is the representation a topology template
 type Topology struct {
 	Data struct {
@@ -350,6 +356,12 @@ type Topology struct {
 type UpdateDeploymentTopologyRequest struct {
 	InputProperties              map[string]interface{} `json:"inputProperties,omitempty"`
 	ProviderDeploymentProperties map[string]string      `json:"providerDeploymentProperties,omitempty"`
+}
+
+type BasicTopologyInfo struct {
+	ArchiveName	string
+	Workspace 	string
+	ID 			string
 }
 
 // ApplicationCreateRequest is the representation of a request to create an application from a topology template
