@@ -56,7 +56,7 @@ type TopologyService interface {
 	// Deletes a policy from the topology
 	DeletePolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string) error
 	// Returns a list of available topologies
-	GetAllTopologies(ctx context.Context) ([]BasicTopologyInfo, error)
+	GetTopologies(ctx context.Context, query string) ([]BasicTopologyInfo, error)
 }
 
 type topologyService struct {
@@ -519,13 +519,13 @@ func (t *topologyService) SaveA4CTopology(ctx context.Context, a4cCtx *TopologyE
 	return processA4CResponse(response, nil, http.StatusOK)
 }
 
-func (t *topologyService) GetAllTopologies(ctx context.Context) ([]BasicTopologyInfo, error) {
+func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]BasicTopologyInfo, error) {
 
 	getTopoJSON, err := json.Marshal(
-		ListTopologiesCreateRequest{
-			from: 0,
-			query: "",
-			size: 0,
+		searchRequest{
+			From: "",
+			Query: query,
+			Size: "",
 		},
 	)
 
@@ -537,12 +537,7 @@ func (t *topologyService) GetAllTopologies(ctx context.Context) ([]BasicTopology
 		"POST",
 		fmt.Sprintf("%s/catalog/topologies/search", a4CRestAPIPrefix),
 		[]byte(string(getTopoJSON)),
-		[]Header{
-			{
-				"Content-Type",
-				"application/json",
-			},
-		},
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
 	
 	if err != nil {
