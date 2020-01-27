@@ -352,6 +352,12 @@ type UpdateDeploymentTopologyRequest struct {
 	ProviderDeploymentProperties map[string]string      `json:"providerDeploymentProperties,omitempty"`
 }
 
+type BasicTopologyInfo struct {
+	ArchiveName	string
+	Workspace 	string
+	ID 			string
+}
+
 // ApplicationCreateRequest is the representation of a request to create an application from a topology template
 type ApplicationCreateRequest struct {
 	Name                      string `json:"name"`
