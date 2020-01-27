@@ -329,12 +329,6 @@ type DeploymentArtifact struct {
 	Description          string                 `json:"description,omitempty"`
 }
 
-type ListTopologiesCreateRequest struct {
-	from 	int			`json:"from"`
-	query	string		`json:"query"`
-	size	int			`json:"size"`
-}
-
 // Topology is the representation a topology template
 type Topology struct {
 	Data struct {
