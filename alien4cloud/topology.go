@@ -555,7 +555,10 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 		}`json:"data"`
 	}
 
-	processA4CResponse(response, &res, http.StatusOK)
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot read response when getting topologies with query %q", query)
+	}
 	var topologyInfo []BasicTopologyInfo
 	
 	for i := range res.Data.Data {
