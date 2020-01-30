@@ -53,6 +53,8 @@ type TopologyService interface {
 	AddWorkflowActivity(ctx context.Context, a4cCtx *TopologyEditorContext, workflowName string, activity *WorkflowActivity) error
 	// Adds a policy to the topology
 	AddPolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName, policyTypeID string) error
+	// Adds targets to a previously created policy
+	AddTargetsToPolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string, targets []string) error
 	// Deletes a policy from the topology
 	DeletePolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string) error
 	// Returns a list of available topologies
@@ -523,9 +525,9 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 
 	getTopoJSON, err := json.Marshal(
 		searchRequest{
-			From: "",
+			From:  "",
 			Query: query,
-			Size: "",
+			Size:  "",
 		},
 	)
 
@@ -539,7 +541,7 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 		[]byte(string(getTopoJSON)),
 		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot send request to list topologies")
 	}
@@ -547,12 +549,12 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 	var res struct {
 		Data struct {
 			Types []string `json:"types"`
-			Data []struct {
-				ArchiveName string 	`json:"archiveName"`
-				Workspace string 	`json:"workspace"`
-				ID string 			`json:"id"`
-			}`json:"data"`
-		}`json:"data"`
+			Data  []struct {
+				ArchiveName string `json:"archiveName"`
+				Workspace   string `json:"workspace"`
+				ID          string `json:"id"`
+			} `json:"data"`
+		} `json:"data"`
 	}
 
 	err = processA4CResponse(response, &res, http.StatusOK)
@@ -560,7 +562,7 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 		return nil, errors.Wrapf(err, "Cannot read response when getting topologies with query %q", query)
 	}
 	var topologyInfo []BasicTopologyInfo
-	
+
 	for i := range res.Data.Data {
 		temp := BasicTopologyInfo{ArchiveName: res.Data.Data[i].ArchiveName, Workspace: res.Data.Data[i].Workspace, ID: res.Data.Data[i].ID}
 		topologyInfo = append(topologyInfo, temp)

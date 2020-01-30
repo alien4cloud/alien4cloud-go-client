@@ -113,6 +113,107 @@ func Test_topologyService_AddPolicy(t *testing.T) {
 	}
 }
 
+func Test_topologyService_AddTargetsToPolicy(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/editor/.*/execute`).Match([]byte(r.URL.Path)):
+			var tepReq topologyEditorPolicies
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+			defer r.Body.Close()
+			s := string(rb)
+			t.Logf("request: %s", s)
+
+			err = json.Unmarshal(rb, &tepReq)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+			assert.Equal(t, tepReq.getOperationType(), "org.alien4cloud.tosca.editor.operations.policies.UpdatePolicyTargetsOperation")
+			assert.Assert(t, "" != tepReq.PolicyName)
+			assert.Assert(t, nil != tepReq.Targets)
+			if tepReq.PolicyName == "policy1withid" {
+				assert.Assert(t, "" != tepReq.getPreviousOperationID())
+			} else {
+				assert.Equal(t, tepReq.getPreviousOperationID(), "")
+			}
+			var resExec struct {
+				Data struct {
+					LastOperationIndex int `json:"lastOperationIndex"`
+					Operations         []struct {
+						PreviousOperationID string `json:"id"`
+					} `json:"operations"`
+				} `json:"data"`
+			}
+			resExec.Data.LastOperationIndex = 0
+			resExec.Data.Operations = []struct {
+				PreviousOperationID string "json:\"id\""
+			}{
+				struct {
+					PreviousOperationID string "json:\"id\""
+				}{PreviousOperationID: "0"},
+			}
+			resExec.Data.Operations = nil
+
+			b, err := json.Marshal(&resExec)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(b)
+			return
+		case regexp.MustCompile(`.*/applications/notfound/environments/.*/topology`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
+			var res struct {
+				Data string `json:"data"`
+			}
+			res.Data = "tid"
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(b)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx        context.Context
+		a4cCtx     *TopologyEditorContext
+		policyName string
+		targets    []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"NormalCase", args{context.Background(), &TopologyEditorContext{AppID: "app", EnvID: "env"}, "policy1", []string{"ComputeA", "ComputeB"}}, false},
+		{"WithPreviousOpID", args{context.Background(), &TopologyEditorContext{AppID: "app", EnvID: "env", PreviousOperationID: "someid"}, "policy1withid", []string{"ComputeA", "ComputeB"}}, false},
+		{"TopoNotFound", args{context.Background(), &TopologyEditorContext{AppID: "notfound", EnvID: "env"}, "policy1", []string{"ComputeA", "ComputeB"}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tServ := &topologyService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			if err := tServ.AddTargetsToPolicy(tt.args.ctx, tt.args.a4cCtx, tt.args.policyName, tt.args.targets); (err != nil) != tt.wantErr {
+				t.Errorf("topologyService.AddTargetsToPolicy() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func Test_topologyService_DeletePolicy(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
