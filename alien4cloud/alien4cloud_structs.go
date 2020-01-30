@@ -353,9 +353,9 @@ type UpdateDeploymentTopologyRequest struct {
 }
 
 type BasicTopologyInfo struct {
-	ArchiveName	string
-	Workspace 	string
-	ID 			string
+	ArchiveName string
+	Workspace   string
+	ID          string
 }
 
 // ApplicationCreateRequest is the representation of a request to create an application from a topology template
@@ -591,8 +591,9 @@ func (t topologyEditorExecuteRequest) getOperationType() string {
 // topologyEditorPolicies is the representation of a request to execute the topology editor
 type topologyEditorPolicies struct {
 	topologyEditorExecuteRequest
-	PolicyName   string `json:"policyName"`
-	PolicyTypeID string `json:"policyTypeId,omitempty"`
+	PolicyName   string   `json:"policyName"`
+	PolicyTypeID string   `json:"policyTypeId,omitempty"`
+	Targets      []string `json:"targets,omitempty"`
 }
 
 // FacetedSearchResult allows to retrieve pagination information
