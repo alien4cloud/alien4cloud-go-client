@@ -56,8 +56,10 @@ type DeploymentService interface {
 	GetNodeStatus(ctx context.Context, applicationID string, environmentID string, nodeName string) (string, error)
 	// Returns the output attributes of nodes in the given applicationID and environmentID
 	GetOutputAttributes(ctx context.Context, applicationID string, environmentID string) (map[string][]string, error)
-	// Returns the application deployment attributes
+	// Returns the application deployment attributes for the first instance of a node name
 	GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
+	// Returns the application deployment attributes for the specified instance of a node name
+	GetInstanceAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName, instanceName string, requestedAttributesName []string) (map[string]string, error)
 	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID
 	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error)
 	// Runs a workflow asynchronously returning the execution id, results will be notified using the ExecutionCallback function.
@@ -447,8 +449,17 @@ func (d *deploymentService) GetOutputAttributes(ctx context.Context, application
 
 }
 
-// GetAttributesValue returns the application deployment attributes
+// GetAttributesValue returns the application deployment attributes for the first instance of the specified nodeName
 func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error) {
+	return d.getInstanceAttributesValue(ctx, applicationID, environmentID, nodeName, "0", requestedAttributesName)
+}
+
+// GetInstanceAttributesValue returns the application deployment attributes for a specified nodeName and instanceName
+func (d *deploymentService) GetInstanceAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName, instanceName string, requestedAttributesName []string) (map[string]string, error) {
+	return d.getInstanceAttributesValue(ctx, applicationID, environmentID, nodeName, instanceName, requestedAttributesName)
+}
+
+func (d *deploymentService) getInstanceAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName, instanceName string, requestedAttributesName []string) (map[string]string, error) {
 
 	response, err := d.client.doWithContext(ctx,
 		"GET",
@@ -473,16 +484,15 @@ func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationI
 	attributesValue := map[string]string{}
 
 	// Iterate over the data returned by A4C in order to get values of requested attributes (they can have multiple).
-	// This script just take the attribute value of the first instance of the given node.
 
 	for alienNodeName, node := range nodeStatusResponse.Data {
 		if alienNodeName == nodeName {
 			for _, attributeName := range requestedAttributesName {
-				for alienAttributeName, attributeValue := range node["0"].Attributes {
+				for alienAttributeName, attributeValue := range node[instanceName].Attributes {
 					if attributeName == alienAttributeName {
 						attributesValue[attributeName] = attributeValue
 						// Just to improve performances
-						delete(node["0"].Attributes, alienAttributeName)
+						delete(node[instanceName].Attributes, alienAttributeName)
 						break
 					}
 				}
