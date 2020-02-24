@@ -349,6 +349,11 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 		return "", err
 	}
 
+	if deploymentID == "" {
+		// Application not deployed
+		return ApplicationUndeployed, err
+	}
+
 	response, err := d.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf("%s/deployments/%s/status", a4CRestAPIPrefix, deploymentID),
@@ -370,6 +375,7 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 }
 
 // GetCurrentDeploymentID returns current deployment ID for the given applicationID and environmentID
+// Returns an empty string if the application is undeployed
 func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicationID string, environmentID string) (string, error) {
 
 	response, err := d.client.doWithContext(ctx,
