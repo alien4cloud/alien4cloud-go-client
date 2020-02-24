@@ -350,7 +350,7 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 	}
 
 	if deploymentID == "" {
-		// Application not deployed
+		// Application is not deployed
 		return ApplicationUndeployed, err
 	}
 
