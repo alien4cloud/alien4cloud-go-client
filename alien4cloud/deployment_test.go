@@ -162,6 +162,80 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 	}
 }
 
+func Test_deploymentService_GetDeploymentStatus(t *testing.T) {
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/UndeployedApp/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{}}`))
+			return
+		case regexp.MustCompile(`.*/applications/UnknownApp/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"deployment":{"id":"myID"}}}`))
+			return
+		case regexp.MustCompile(`.*/deployments//status`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/deployments/.*/status`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, ApplicationDeployed)))
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx   context.Context
+		appID string
+		envID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{"UndeployedStatus", args{context.Background(), "UndeployedApp", "env"}, ApplicationUndeployed, false},
+		{"DeployedStatus", args{context.Background(), "app", "env"}, ApplicationDeployed, false},
+		{"ErrorNotFound", args{context.Background(), "UnknownApp", "env"}, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &deploymentService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			got, err := d.GetDeploymentStatus(tt.args.ctx, tt.args.appID, tt.args.envID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetDeploymentStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("deploymentService.GetDeploymentStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	cancelableCtx, cancelFn := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancelFn()
+	d := &deploymentService{
+		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+	}
+
+	if _, err := d.WaitUntilStateIs(cancelableCtx, "cancel", "envID", ApplicationUpdated); err == nil {
+		t.Error("deploymentService.WaitUntilStateIs() expecting an error")
+	}
+}
+
 func Test_deploymentService_RunWorkflow(t *testing.T) {
 	closeCh := make(chan struct{})
 	defer close(closeCh)
