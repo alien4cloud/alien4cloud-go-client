@@ -57,8 +57,10 @@ type TopologyService interface {
 	AddTargetsToPolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string, targets []string) error
 	// Deletes a policy from the topology
 	DeletePolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string) error
-	// Returns a list of available topologies
-	GetTopologies(ctx context.Context, query string) ([]BasicTopologyInfo, error)
+	// Returns a list of topologyIDs available topologies
+	GetTopologyIDs(ctx context.Context, query string) ([]BasicTopologyInfo, error)
+	// Returns Topology details for a given TopologyID
+	GetTopologyByID(ctx context.Context, a4cTopologyID string) (*Topology, error)
 }
 
 type topologyService struct {
@@ -521,7 +523,7 @@ func (t *topologyService) SaveA4CTopology(ctx context.Context, a4cCtx *TopologyE
 	return processA4CResponse(response, nil, http.StatusOK)
 }
 
-func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]BasicTopologyInfo, error) {
+func (t *topologyService) GetTopologyIDs(ctx context.Context, query string) ([]BasicTopologyInfo, error) {
 
 	getTopoJSON, err := json.Marshal(
 		searchRequest{
@@ -569,4 +571,26 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 	}
 
 	return topologyInfo, nil
+}
+
+func (t *topologyService) GetTopologyByID(ctx context.Context, a4cTopologyID string) (*Topology, error) {
+
+	response, err := t.client.doWithContext(ctx,
+		"GET",
+		fmt.Sprintf("%s/topologies/%s", a4CRestAPIPrefix, a4cTopologyID),
+		nil,
+		[]Header{contentTypeAppJSONHeader},
+	)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot get the topology content for topologyID '%s'", a4cTopologyID)
+	}
+
+	res := new(Topology)
+	err = processA4CResponse(response, res, http.StatusOK)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot convert the body of topology get data for topologyID '%s'", a4cTopologyID)
+	}
+
+	return res, nil
 }
