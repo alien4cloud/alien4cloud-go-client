@@ -215,6 +215,7 @@ type logsSearchRequest struct {
 type nodeTemplate struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
+	Tags string `json:"tags"`
 }
 
 // nodeType is the representation a node type
@@ -338,6 +339,7 @@ type Topology struct {
 		Topology          struct {
 			ArchiveName    string                        `json:"archiveName"`
 			ArchiveVersion string                        `json:"archiveVersion"`
+			Description    string                        `json:"description, omitempty"`
 			NodeTemplates  map[string]nodeTemplate       `json:"nodeTemplates"`
 			Inputs         map[string]PropertyDefinition `json:"inputs,omitempty"`
 			InputArtifacts map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`

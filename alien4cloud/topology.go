@@ -57,8 +57,10 @@ type TopologyService interface {
 	AddTargetsToPolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string, targets []string) error
 	// Deletes a policy from the topology
 	DeletePolicy(ctx context.Context, a4cCtx *TopologyEditorContext, policyName string) error
-	// Returns a list of available topologies
+	// Returns a list of topologyIDs available topologies
 	GetTopologies(ctx context.Context, query string) ([]BasicTopologyInfo, error)
+	// Returns Topology details for a given TopologyID
+	GetTopologyByID(ctx context.Context, a4cTopologyID string) (*Topology, error)
 }
 
 type topologyService struct {
@@ -191,24 +193,13 @@ func (t *topologyService) GetTopology(ctx context.Context, appID string, envID s
 	a4cTopologyID, err := t.GetTopologyID(ctx, appID, envID)
 
 	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to get A4C application topology ID for app %s and env %s", appID, envID)
+	}
+
+	res, err := t.GetTopologyByID(ctx, a4cTopologyID)
+
+	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to get A4C application topology for app %s and env %s", appID, envID)
-	}
-
-	response, err := t.client.doWithContext(ctx,
-		"GET",
-		fmt.Sprintf("%s/topologies/%s", a4CRestAPIPrefix, a4cTopologyID),
-		nil,
-		[]Header{contentTypeAppJSONHeader},
-	)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot get the topology content for application '%s' in '%s' environment", appID, envID)
-	}
-
-	res := new(Topology)
-	err = processA4CResponse(response, res, http.StatusOK)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot convert the body of topology get data for application '%s' in '%s' environment", appID, envID)
 	}
 
 	return res, nil
@@ -569,4 +560,26 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 	}
 
 	return topologyInfo, nil
+}
+
+func (t *topologyService) GetTopologyByID(ctx context.Context, a4cTopologyID string) (*Topology, error) {
+
+	response, err := t.client.doWithContext(ctx,
+		"GET",
+		fmt.Sprintf("%s/topologies/%s", a4CRestAPIPrefix, a4cTopologyID),
+		nil,
+		[]Header{contentTypeAppJSONHeader},
+	)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot get the topology content for topologyID '%s'", a4cTopologyID)
+	}
+
+	res := new(Topology)
+	err = processA4CResponse(response, res, http.StatusOK)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot convert the body of topology get data for topologyID '%s'", a4cTopologyID)
+	}
+
+	return res, nil
 }
