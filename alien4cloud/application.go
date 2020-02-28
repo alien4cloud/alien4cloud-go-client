@@ -41,6 +41,8 @@ type ApplicationService interface {
 	SetTagToApplication(ctx context.Context, applicationID string, tagKey string, tagValue string) error
 	// Returns the tag value for the given application ID and tag key
 	GetApplicationTag(ctx context.Context, applicationID string, tagKey string) (string, error)
+	// Returns the deployment topology for an application given an environment 
+	GetDeploymentTopology(ctx context.Context, appID string, envID string ) (*Topology, error)
 }
 
 type applicationService struct {
@@ -360,4 +362,26 @@ func (a *applicationService) GetApplicationTag(ctx context.Context, applicationI
 
 	// If we get here, no tags with such key has been found.
 	return "", fmt.Errorf("no tag with key '%s'", tagKey)
+}
+
+func (a *applicationService) GetDeploymentTopology(ctx context.Context, appID string, envID string ) (*Topology, error) {
+
+	response, err := a.client.doWithContext(ctx,
+		"GET",
+		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology", a4CRestAPIPrefix, appID, envID),
+		nil,
+		[]Header{contentTypeAppJSONHeader},
+	)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot get the deployment topology content for application '%s' on environemnt '%s'", appID, envID)
+	}
+
+	res := new(Topology)
+	err = processA4CResponse(response, res, http.StatusOK)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot convert the body of deployment topology get data for application '%s', on environment '%s'", appID, envID)
+	}
+
+	return res, nil
 }
