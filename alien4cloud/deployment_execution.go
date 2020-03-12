@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 )
@@ -41,4 +42,33 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 
 	err = processA4CResponse(response, &res, http.StatusOK)
 	return res.Data.Data, res.Data.FacetedSearchResult, errors.Wrapf(err, "Cannot convert the body response to request on executions for deployment %q", deploymentID)
+}
+
+func (d *deploymentService) CancelExecution(ctx context.Context, environmentID string, executionID string) error {
+
+
+	u := fmt.Sprintf("%s/executions/cancel", a4CRestAPIPrefix)
+
+	cancelExecBody, err := json.Marshal(
+		cancelExecRequest{
+			EnvironmentID: environmentID,
+			ExecutionID: executionID,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "Cannot marshal a cancelExecRequest structure")
+	}
+
+	_, err = d.client.doWithContext(ctx,
+		"POST",
+		u,
+		[]byte(string(cancelExecBody)),
+		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+	)
+	
+	if err != nil {
+		return errors.Wrapf(err, "Failed to cancel execution for execution '%s' on environment '%s'", executionID, environmentID)
+	}
+
+	return nil
 }

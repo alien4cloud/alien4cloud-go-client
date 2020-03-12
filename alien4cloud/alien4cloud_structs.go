@@ -605,3 +605,9 @@ type FacetedSearchResult struct {
 	From         int `json:"from"`
 	To           int `json:"to"`
 }
+
+// cancelExecRequest is teh representation of a request to cancel an execution.
+type cancelExecRequest struct {
+	EnvironmentID string	`json:"environemntID"`
+	ExecutionID string		`json:"executionID"`
+}
