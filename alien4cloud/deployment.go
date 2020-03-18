@@ -74,6 +74,8 @@ type DeploymentService interface {
 	// - query allows to search a specific execution but may be empty
 	// - from and size allows to paginate results
 	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]WorkflowExecution, FacetedSearchResult, error)
+	// Cancels execution for given environmentID and executionID
+	CancelExecution(ctx context.Context, environmentID string, executionID string) error
 }
 
 // ExecutionCallback is a function call by asynchronous operations when an execution reaches a terminal state
