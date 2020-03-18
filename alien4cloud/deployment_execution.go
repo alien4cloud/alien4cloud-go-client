@@ -47,10 +47,8 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 func (d *deploymentService) CancelExecution(ctx context.Context, environmentID string, executionID string) error {
 
 
-	u := fmt.Sprintf("%s/executions/cancel", a4CRestAPIPrefix)
-
 	cancelExecBody, err := json.Marshal(
-		cancelExecRequest{
+		CancelExecRequest{
 			EnvironmentID: environmentID,
 			ExecutionID: executionID,
 		},
@@ -61,7 +59,7 @@ func (d *deploymentService) CancelExecution(ctx context.Context, environmentID s
 
 	_, err = d.client.doWithContext(ctx,
 		"POST",
-		u,
+		fmt.Sprintf("%s/executions/cancel", a4CRestAPIPrefix),
 		[]byte(string(cancelExecBody)),
 		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
