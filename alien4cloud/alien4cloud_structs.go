@@ -215,7 +215,7 @@ type logsSearchRequest struct {
 type nodeTemplate struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
-	Tags string `json:"tags"`
+	Tags []Tag  `json:"tags,omitempty"`
 }
 
 // nodeType is the representation a node type
@@ -378,7 +378,7 @@ type Tag struct {
 type Application struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
-	Tags []Tag
+	Tags []Tag  `json:"tags,omitempty"`
 }
 
 // TopologyEditor is the representation a topology template editor
