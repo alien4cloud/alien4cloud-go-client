@@ -337,13 +337,13 @@ type Topology struct {
 		RelationshipTypes map[string]relationshipType `json:"relationshipTypes"`
 		CapabilityTypes   map[string]capabilityType   `json:"capabilityTypes"`
 		Topology          struct {
-			ArchiveName    			string                        `json:"archiveName"`
-			ArchiveVersion 			string                        `json:"archiveVersion"`
-			Description    			string                        `json:"description, omitempty"`
-			NodeTemplates  			map[string]nodeTemplate       `json:"nodeTemplates"`
-			Inputs         			map[string]PropertyDefinition `json:"inputs,omitempty"`
-			InputArtifacts 			map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
-			UploadedInputArtifacts	map[string]DeploymentArtifact `json:"uploadedinputArtifacts,omitempty"`
+			ArchiveName            string                        `json:"archiveName"`
+			ArchiveVersion         string                        `json:"archiveVersion"`
+			Description            string                        `json:"description,omitempty"`
+			NodeTemplates          map[string]nodeTemplate       `json:"nodeTemplates"`
+			Inputs                 map[string]PropertyDefinition `json:"inputs,omitempty"`
+			InputArtifacts         map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
+			UploadedInputArtifacts map[string]DeploymentArtifact `json:"uploadedinputArtifacts,omitempty"`
 		} `json:"topology"`
 	} `json:"data"`
 }
@@ -609,5 +609,5 @@ type FacetedSearchResult struct {
 // cancelExecRequest is the representation of a request to cancel an execution.
 type CancelExecRequest struct {
 	EnvironmentID string `json:"environmentId"`
-	ExecutionID string   `json:"executionId"`
+	ExecutionID   string `json:"executionId"`
 }
