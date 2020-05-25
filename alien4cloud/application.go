@@ -41,8 +41,8 @@ type ApplicationService interface {
 	SetTagToApplication(ctx context.Context, applicationID string, tagKey string, tagValue string) error
 	// Returns the tag value for the given application ID and tag key
 	GetApplicationTag(ctx context.Context, applicationID string, tagKey string) (string, error)
-	// Returns the deployment topology for an application given an environment 
-	GetDeploymentTopology(ctx context.Context, appID string, envID string ) (*Topology, error)
+	// Returns the deployment topology for an application given an environment
+	GetDeploymentTopology(ctx context.Context, appID string, envID string) (*Topology, error)
 }
 
 type applicationService struct {
@@ -238,60 +238,29 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 // GetApplicationByID returns the application with the given ID
 func (a *applicationService) GetApplicationByID(ctx context.Context, id string) (*Application, error) {
 
-	appsSearchBody, err := json.Marshal(
-		searchRequest{
-			id,
-			"0",
-			"1",
-		},
-	)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot marshal an searchRequest structure")
-	}
-
 	response, err := a.client.doWithContext(ctx,
-		"POST",
-		fmt.Sprintf("%s/applications/search", a4CRestAPIPrefix),
-		[]byte(string(appsSearchBody)),
+		"GET",
+		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, id),
+		nil,
 		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
+		return nil, errors.Wrapf(err, "Cannot get application with ID '%s'", id)
 	}
-	switch response.StatusCode {
-	case http.StatusNotFound:
-		// No application with this filter have been found
-		// to fully read response
-		_ = processA4CResponse(response, nil, http.StatusNotFound)
-		return nil, nil
 
-	default:
-
-		var res struct {
-			Data struct {
-				Types        []string      `json:"types"`
-				Data         []Application `json:"data"`
-				TotalResults int           `json:"totalResults"`
-			} `json:"data"`
-			Error Error `json:"error"`
-		}
-		err = processA4CResponse(response, &res, http.StatusOK)
-		if err != nil {
-			return nil, err
-		}
-
-		if res.Data.TotalResults <= 0 {
-			// No result have been returned
-			return nil, nil
-		}
-
-		if res.Data.Data != nil && len(res.Data.Data) > 0 {
-			return &res.Data.Data[0], nil
-		}
-		return nil, errors.New("Unable to access the response Data (nil or empty)")
+	// RuntimeTopology represents runtime topology from a4c rest api
+	var res struct {
+		Data  Application `json:"data,omitempty"`
+		Error Error       `json:"error,omitempty"`
 	}
+
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	return &res.Data, err
 
 }
 
@@ -364,7 +333,7 @@ func (a *applicationService) GetApplicationTag(ctx context.Context, applicationI
 	return "", fmt.Errorf("no tag with key '%s'", tagKey)
 }
 
-func (a *applicationService) GetDeploymentTopology(ctx context.Context, appID string, envID string ) (*Topology, error) {
+func (a *applicationService) GetDeploymentTopology(ctx context.Context, appID string, envID string) (*Topology, error) {
 
 	response, err := a.client.doWithContext(ctx,
 		"GET",
