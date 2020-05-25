@@ -106,32 +106,51 @@ func Test_applicationService_GetApplicationsID(t *testing.T) {
 }
 
 func Test_applicationService_GetApplicationByID(t *testing.T) {
-	ts := newHTTPServerTestApplicationSearch(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/unknownID`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"cannot be found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/existingID`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"id":"existingID","name":"existingApp","tags":[]}}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
 	defer ts.Close()
 	type args struct {
 		ctx   context.Context
 		appID string
 	}
 	tests := []struct {
-		name       string
-		args       args
-		wantResult bool
+		id      string
+		args    args
+		wantErr bool
+		want    string
 	}{
-		{"ExistingApp", args{context.Background(), "existingApp"}, true},
-		{"UnknownApp", args{context.Background(), "unknownApp"}, false},
+		{"existingID", args{context.Background(), "existingID"}, false, "existingApp"},
+		{"unknownID", args{context.Background(), "unknownID"}, true, ""},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.id, func(t *testing.T) {
 
 			a := &applicationService{
 				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
 			}
 
-			appFound, err := a.GetApplicationByID(tt.args.ctx, tt.args.appID)
-			if err != nil {
-				t.Errorf("applicationService.GetApplicationByID() error = %v", err)
+			app, err := a.GetApplicationByID(tt.args.ctx, tt.args.appID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("catalogService.UploadCSAR() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			assert.Equal(t, appFound != nil, tt.wantResult, "Unexpected result for GetApplicationByID()")
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, app.Name, "Unexpected result for GetApplicationByID()")
+			}
 		})
 	}
 }
