@@ -30,8 +30,11 @@ which is providing workflows **killWebServer**, **stopWebServer**, **startWebSer
            -user myuser \
            -password mypasswd \
            -app myapp \
-           -worflow stopWebServer
+           -workflow stopWebServer
 ```
+
+You can also specify the option `-events` to see workflow events received during the workflow execution.
+Else (default case), workflow logs will be printed.
 
 ## What's next
 
