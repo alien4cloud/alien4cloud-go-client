@@ -23,10 +23,9 @@ import (
 	"github.com/alien4cloud/alien4cloud-go-client/v2/alien4cloud"
 )
 
-const workflowExecutionStartTimeout = 60 * time.Second
-
 // Command arguments
 var url, user, password, appName, workflow string
+var showEvents bool
 
 func init() {
 	// Initialize command arguments
@@ -35,6 +34,7 @@ func init() {
 	flag.StringVar(&password, "password", "changeme", "Password")
 	flag.StringVar(&appName, "app", "", "Name of the application to create")
 	flag.StringVar(&workflow, "workflow", "", "Name of the workflow to run")
+	flag.BoolVar(&showEvents, "events", false, "Show events")
 }
 
 func main() {
@@ -78,6 +78,16 @@ func main() {
 		}
 		close(closeCh)
 	}
+
+	nbEvents := 0
+	if showEvents {
+		// get last number of events
+		_, nbEvents, err = client.EventService().GetEventsForApplicationEnvironment(ctx, envID, 0, 1)
+		if err != nil {
+			log.Panic(err)
+		}
+
+	}
 	execID, err := client.DeploymentService().RunWorkflowAsync(ctx, appName, envID, workflow, cb)
 	if err != nil {
 		log.Panic(err)
@@ -96,6 +106,29 @@ ExitLoop:
 			break ExitLoop
 		case <-time.After(5 * time.Second):
 		}
+		if showEvents {
+
+			events, newNbEvents, err := client.EventService().GetEventsForApplicationEnvironment(ctx, envID, 0, nbEvents+100000)
+			if err != nil {
+				log.Panic(err)
+			}
+			// Results are sorted by date in descending order
+			for idx := newNbEvents - nbEvents - 1; idx >= 0; idx-- {
+
+				if events[idx].InstanceState != "" {
+					// Printing a message like:
+					// Event received: component Welcome instance 0 state stopping
+					// Event received: component Welcome instance 0 state stopped
+					log.Printf("Event received: component %s instance %s state %s",
+						events[idx].NodeTemplateId, events[idx].InstanceId, events[idx].InstanceState)
+
+				}
+			}
+			nbEvents = newNbEvents
+			continue
+		}
+
+		// Else just display logs
 		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(ctx, appName, envID, filters, logIndex)
 		if err != nil {
 			log.Panic(err)

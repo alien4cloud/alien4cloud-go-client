@@ -490,6 +490,21 @@ type RuntimeTopology struct {
 	Error Error `json:"error"`
 }
 
+// Event represents an event entry returned by the A4C REST API
+type Event struct {
+	DeploymentID         string                 `json:"deploymentId,omitempty"`
+	Date                 Time                   `json:"date,omitempty"`
+	DeploymentStatus     string                 `json:"deploymentStatus,omitempty"`
+	NodeTemplateId       string                 `json:"nodeTemplateId,omitempty"`
+	InstanceId           string                 `json:"instanceId,omitempty"`
+	InstanceState        string                 `json:"instanceState,omitempty"`
+	InstanceStatus       string                 `json:"instanceStatus,omitempty"`
+	Attributes           map[string]string      `json:"attributes,omitempty"`
+	RuntimeProperties    map[string]string      `json:"runtimeProperties,omitempty"`
+	PersistentProperties map[string]interface{} `json:"persistentProperties,omitempty"`
+	Message              string                 `json:"message,omitempty"`
+}
+
 // Log represents the log entry return by the a4c rest api
 type Log struct {
 	ID               string `json:"id"`

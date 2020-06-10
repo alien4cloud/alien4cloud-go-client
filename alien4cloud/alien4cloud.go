@@ -39,6 +39,7 @@ type Client interface {
 
 	ApplicationService() ApplicationService
 	DeploymentService() DeploymentService
+	EventService() EventService
 	LogService() LogService
 	OrchestratorService() OrchestratorService
 	TopologyService() TopologyService
@@ -113,6 +114,7 @@ type a4cClient struct {
 	client              restClient
 	applicationService  *applicationService
 	deploymentService   *deploymentService
+	eventService        *eventService
 	logService          *logService
 	orchestratorService *orchestratorService
 	topologyService     *topologyService
@@ -187,6 +189,7 @@ func NewClient(address string, user string, password string, caFile string, skip
 		password: password,
 	}
 	topoService := topologyService{restClient}
+	eventService := eventService{restClient}
 	catService := catalogService{restClient}
 	appService := applicationService{restClient, &topoService}
 	deployService := deploymentService{restClient, &appService, &topoService}
@@ -194,6 +197,7 @@ func NewClient(address string, user string, password string, caFile string, skip
 		client:              restClient,
 		applicationService:  &appService,
 		deploymentService:   &deployService,
+		eventService:        &eventService,
 		logService:          &logService{restClient, &deployService},
 		orchestratorService: &orchestratorService{restClient},
 		topologyService:     &topoService,
@@ -233,6 +237,11 @@ func (c *a4cClient) ApplicationService() ApplicationService {
 // DeploymentService retrieves the Deployment Service
 func (c *a4cClient) DeploymentService() DeploymentService {
 	return c.deploymentService
+}
+
+// Event retrieves the Event Service
+func (c *a4cClient) EventService() EventService {
+	return c.eventService
 }
 
 // LogService retrieves the Log Service
