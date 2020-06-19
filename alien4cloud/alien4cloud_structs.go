@@ -319,7 +319,7 @@ type PropertyDefinition struct {
 	Type         string        `json:"type"`
 	EntrySchema  EntrySchema   `json:"entrySchema,omitempty"`
 	Required     bool          `json:"required,omitempty"`
-	DefaultValue PropertyValue `json:"defaultValue,omitempty"`
+	DefaultValue PropertyValue `json:"default,omitempty"`
 	Description  string        `json:"description,omitempty"`
 	SuggestionID string        `json:"suggestionId,omitempty"`
 	Password     bool          `json:"password,omitempty"`
