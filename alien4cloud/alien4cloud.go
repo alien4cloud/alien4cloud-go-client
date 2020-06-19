@@ -95,6 +95,11 @@ const (
 	// NodeFailed node  a4c status
 	NodeFailed = "failed"
 	// NodeStart node  a4c status
+
+	// FunctionConcat is a function used in attribute/property values to concatenate strings
+	FunctionConcat = "concat"
+	// FunctionGetInput is a function used in attribute/property values to reference an input property
+	FunctionGetInput = "get_input"
 )
 
 const (
