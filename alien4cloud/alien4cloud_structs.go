@@ -211,11 +211,18 @@ type logsSearchRequest struct {
 	} `json:"sortConfiguration"`
 }
 
-// nodeTemplate is the representation a node template
-type nodeTemplate struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-	Tags []Tag  `json:"tags,omitempty"`
+// NodeTemplatePropertyValue represents a node template property value
+type NodeTemplatePropertyValue struct {
+	Key   string        `json:"key,omitempty"`
+	Value PropertyValue `json:"value,omitempty"`
+}
+
+// NodeTemplate is the representation a node template
+type NodeTemplate struct {
+	Name       string                      `json:"name"`
+	Type       string                      `json:"type"`
+	Tags       []Tag                       `json:"tags,omitempty"`
+	Properties []NodeTemplatePropertyValue `json:"properties,omitempty"`
 }
 
 // nodeType is the representation a node type
@@ -294,8 +301,11 @@ type Deployment struct {
 
 // PropertyValue holds the definition of a property value
 type PropertyValue struct {
-	Value      interface{} `json:"value"`
-	Definition bool        `json:"definition,omitempty"`
+	Definition     bool          `json:"definition,omitempty"`
+	Value          interface{}   `json:"value,omitempty"`
+	FunctionConcat string        `json:"function_concat,omitempty"`
+	Function       string        `json:"function,omitempty"`
+	Parameters     []interface{} `json:"parameters,omitempty"`
 }
 
 // EntrySchema holds the definition of the type of an element in a list
@@ -309,7 +319,7 @@ type PropertyDefinition struct {
 	Type         string        `json:"type"`
 	EntrySchema  EntrySchema   `json:"entrySchema,omitempty"`
 	Required     bool          `json:"required,omitempty"`
-	DefaultValue PropertyValue `json:"defaultValue,omitempty"`
+	DefaultValue PropertyValue `json:"default,omitempty"`
 	Description  string        `json:"description,omitempty"`
 	SuggestionID string        `json:"suggestionId,omitempty"`
 	Password     bool          `json:"password,omitempty"`
@@ -340,7 +350,7 @@ type Topology struct {
 			ArchiveName            string                        `json:"archiveName"`
 			ArchiveVersion         string                        `json:"archiveVersion"`
 			Description            string                        `json:"description,omitempty"`
-			NodeTemplates          map[string]nodeTemplate       `json:"nodeTemplates"`
+			NodeTemplates          map[string]NodeTemplate       `json:"nodeTemplates"`
 			Inputs                 map[string]PropertyDefinition `json:"inputs,omitempty"`
 			InputArtifacts         map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
 			UploadedInputArtifacts map[string]DeploymentArtifact `json:"uploadedinputArtifacts,omitempty"`
