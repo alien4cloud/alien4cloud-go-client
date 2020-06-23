@@ -347,13 +347,14 @@ type Topology struct {
 		RelationshipTypes map[string]relationshipType `json:"relationshipTypes"`
 		CapabilityTypes   map[string]capabilityType   `json:"capabilityTypes"`
 		Topology          struct {
-			ArchiveName            string                        `json:"archiveName"`
-			ArchiveVersion         string                        `json:"archiveVersion"`
-			Description            string                        `json:"description,omitempty"`
-			NodeTemplates          map[string]NodeTemplate       `json:"nodeTemplates"`
-			Inputs                 map[string]PropertyDefinition `json:"inputs,omitempty"`
-			InputArtifacts         map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
-			UploadedInputArtifacts map[string]DeploymentArtifact `json:"uploadedinputArtifacts,omitempty"`
+			ArchiveName             string                        `json:"archiveName"`
+			ArchiveVersion          string                        `json:"archiveVersion"`
+			Description             string                        `json:"description,omitempty"`
+			NodeTemplates           map[string]NodeTemplate       `json:"nodeTemplates"`
+			Inputs                  map[string]PropertyDefinition `json:"inputs,omitempty"`
+			InputArtifacts          map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
+			DeployerInputProperties map[string]PropertyValue      `json:"deployerInputProperties,omitempty"`
+			UploadedInputArtifacts  map[string]DeploymentArtifact `json:"uploadedinputArtifacts,omitempty"`
 		} `json:"topology"`
 	} `json:"data"`
 }
