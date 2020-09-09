@@ -99,6 +99,9 @@ func Test_topologyService_AddWorkflowActivity(t *testing.T) {
 		t.Errorf("Unexpected call for request %+v", r)
 	}))
 
+	wrongActivity := WorkflowActivity{
+		activitytype: "WrongActivity",
+	}
 	type args struct {
 		ctx          context.Context
 		a4cCtx       *TopologyEditorContext
@@ -119,6 +122,9 @@ func Test_topologyService_AddWorkflowActivity(t *testing.T) {
 		{"AddCallOp", args{context.Background(),
 			&TopologyEditorContext{AppID: "test", EnvID: "test", TopologyID: "tid"}, "wf",
 			newWfActivity().OperationCall("mynode", "rel", "ifce", "opName").InsertBefore("myotherStep")}, false},
+		{"AddWrongActivity", args{context.Background(),
+			&TopologyEditorContext{AppID: "test", EnvID: "test", TopologyID: "tid"}, "wf",
+			wrongActivity.InsertBefore("myotherStep")}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

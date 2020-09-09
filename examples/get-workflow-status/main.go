@@ -101,10 +101,7 @@ func main() {
 		if err != nil {
 			log.Panic(err)
 		}
-		status, err := getStepStatus(&step, wfExec)
-		if err != nil {
-			log.Panic(err)
-		}
+		status, _ := getStepStatus(&step, wfExec)
 		printStep(description, status)
 		if len(step.OnSuccess) > 0 {
 			err := printNextSteps(step.OnSuccess, wf, wfExec, len(description))
@@ -151,19 +148,9 @@ func getStepDescription(step *alien4cloud.WorkflowStep) (string, error) {
 	return description, err
 }
 
-func getStepStatus(step *alien4cloud.WorkflowStep, wfExec *alien4cloud.WorkflowExecution) (string, error) {
-	var err error
+func getStepStatus(step *alien4cloud.WorkflowStep, wfExec *alien4cloud.WorkflowExecution) (string, bool) {
 	status, found := wfExec.StepStatus[step.Name]
-	if !found {
-		// steps setting a state are not described in the workflow execution
-		if step.Activities[0].Type == alien4cloud.SetStateWorkflowActivityType {
-			status = "unknown"
-		} else {
-			err = errors.Errorf("Found no status for step %s in workflow %s", step.Name, wfExec.Execution.WorkflowName)
-		}
-	}
-
-	return status, err
+	return status, found
 }
 
 func printStep(description, status string) {
@@ -195,14 +182,14 @@ func printNextSteps(stepNames []string, wf alien4cloud.Workflow, wfExec *alien4c
 		if err != nil {
 			return err
 		}
-		status, err := getStepStatus(step, wfExec)
+		status, _ := getStepStatus(step, wfExec)
 		if err != nil {
 			log.Panic(err)
 		}
 
 		var newIdentation int
-		if status == "unknown" {
-			// Skipping steps with an unknown status corresponding to steps setting a state
+		if status == "" && step.Activities[0].Type == alien4cloud.SetStateWorkflowActivityType {
+			// Skipping steps setting a state
 			// The status of such steps is not available in the workflow execution
 			newIdentation = 0
 		} else {
