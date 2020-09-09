@@ -69,7 +69,7 @@ func main() {
 		log.Panic(err)
 	}
 	closeCh := make(chan struct{})
-	var cb alien4cloud.ExecutionCallback = func(wfExec *alien4cloud.WorkflowExecution, cbe error) {
+	var cb alien4cloud.ExecutionCallback = func(wfExec *alien4cloud.Execution, cbe error) {
 		if wfExec != nil {
 			log.Printf("Workflow ended with status: %s\n", wfExec.Status)
 		}

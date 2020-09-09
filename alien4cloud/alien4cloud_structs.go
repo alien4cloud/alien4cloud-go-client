@@ -284,19 +284,19 @@ type Location struct {
 
 // Deployment is the representation a deployment
 type Deployment struct {
-	DeploymentUsername       string      `json:"deploymentUsername"`
-	EndDate                  Time        `json:"endDate"`
-	EnvironmentID            string      `json:"environmentId"`
-	ID                       string      `json:"id"`
-	LocationIds              []string    `json:"locationIds"`
-	OrchestratorDeploymentID string      `json:"orchestratorDeploymentId"`
-	OrchestratorID           string      `json:"orchestratorId"`
-	SourceID                 string      `json:"sourceId"`
-	SourceName               string      `json:"sourceName"`
-	SourceType               string      `json:"sourceType"`
-	StartDate                Time        `json:"startDate"`
-	VersionID                string      `json:"versionId"`
-	WorkflowExecutions       interface{} `json:"workflowExecutions"`
+	DeploymentUsername       string            `json:"deploymentUsername"`
+	EndDate                  Time              `json:"endDate"`
+	EnvironmentID            string            `json:"environmentId"`
+	ID                       string            `json:"id"`
+	LocationIds              []string          `json:"locationIds"`
+	OrchestratorDeploymentID string            `json:"orchestratorDeploymentId"`
+	OrchestratorID           string            `json:"orchestratorId"`
+	SourceID                 string            `json:"sourceId"`
+	SourceName               string            `json:"sourceName"`
+	SourceType               string            `json:"sourceType"`
+	StartDate                Time              `json:"startDate"`
+	VersionID                string            `json:"versionId"`
+	WorkflowExecutions       map[string]string `json:"workflowExecutions"`
 }
 
 // PropertyValue holds the definition of a property value
@@ -610,15 +610,20 @@ type WorkflowStepInstance struct {
 
 // WorkflowExecution represents rest api workflow execution
 type WorkflowExecution struct {
-	ID                  string                          `json:"id"`
-	DeploymentID        string                          `json:"deploymentId"`
-	WorkflowID          string                          `json:"workflowId"`
-	WorkflowName        string                          `json:"workflowName"`
-	DisplayWorkflowName string                          `json:"displayWorkflowName"`
-	Status              string                          `json:"status"`
-	HasFailedTasks      bool                            `json:"hasFailedTasks"`
-	StepStatus          map[string]string               `json:"stepStatus,omitempty"`
-	StepInstances       map[string]WorkflowStepInstance `json:"stepInstances,omitempty"`
+	Execution     Execution                         `json:"execution,omitempty"`
+	StepStatus    map[string]string                 `json:"stepStatus,omitempty"`
+	StepInstances map[string][]WorkflowStepInstance `json:"stepInstances,omitempty"`
+}
+
+// Execution hold properties of the execution of a workflow
+type Execution struct {
+	ID                  string `json:"id"`
+	DeploymentID        string `json:"deploymentId"`
+	WorkflowID          string `json:"workflowId"`
+	WorkflowName        string `json:"workflowName"`
+	DisplayWorkflowName string `json:"displayWorkflowName"`
+	Status              string `json:"status"`
+	HasFailedTasks      bool   `json:"hasFailedTasks"`
 }
 
 // Time represents the timestamp field from A4C
