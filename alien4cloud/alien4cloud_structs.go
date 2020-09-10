@@ -594,6 +594,7 @@ type LogFilter struct {
 	ExecutionID []string `json:"executionId,omitempty"`
 }
 
+// WorkflowStepInstance holds properties of a workflow step instance
 type WorkflowStepInstance struct {
 	ID               string `json:"id,omitempty"`
 	StepId           string `json:"stepId,omitempty"`
