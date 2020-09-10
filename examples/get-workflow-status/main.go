@@ -156,11 +156,11 @@ func getStepStatus(step *alien4cloud.WorkflowStep, wfExec *alien4cloud.WorkflowE
 func printStep(description, status string) {
 
 	switch status {
-	case "COMPLETED_SUCCESSFULL":
+	case alien4cloud.StepCompletedSuccessfull:
 		color.New(color.FgGreen).Printf("%s", description)
-	case "COMPLETED_WITH_ERROR":
+	case alien4cloud.StepCompletedWithError:
 		color.New(color.FgRed).Printf("%s", description)
-	case "STARTED":
+	case alien4cloud.StepStarted:
 		color.New(color.FgBlue).Printf("%s", description)
 	default:
 		fmt.Printf("%s", description)

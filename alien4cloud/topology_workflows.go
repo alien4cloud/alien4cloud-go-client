@@ -15,6 +15,13 @@ const (
 	SetStateWorkflowActivityType = "org.alien4cloud.tosca.model.workflow.activities.SetStateWorkflowActivity"
 	// DelegateWorkflowActivity is the type of an activity delegated to an orchestrator
 	DelegateWorkflowActivity = "org.alien4cloud.tosca.model.workflow.activities.DelegateWorkflowActivity"
+
+	// StepStarted is the status of a workflow step that is started (currently running, not yet completed)
+	StepStarted = "STARTED"
+	// StepCompletedSuccessfull is the status of a workflow step that has completed successfully
+	StepCompletedSuccessfull = "COMPLETED_SUCCESSFULL"
+	// StepCompletedSuccessfull is the status of a workflow step that has failed
+	StepCompletedWithError = "COMPLETED_WITH_ERROR"
 )
 
 // WorkflowActivity is a workflow activity payload.
