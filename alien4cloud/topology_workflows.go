@@ -7,9 +7,21 @@ import (
 )
 
 const (
-	callOperationWorkflowActivityType = "org.alien4cloud.tosca.model.workflow.activities.CallOperationWorkflowActivity"
-	inlineWorkflowActivityType        = "org.alien4cloud.tosca.model.workflow.activities.InlineWorkflowActivity"
-	setStateWorkflowActivityType      = "org.alien4cloud.tosca.model.workflow.activities.SetStateWorkflowActivity"
+	// CallOperationWorkflowActivityType is the type of a call operation activity
+	CallOperationWorkflowActivityType = "org.alien4cloud.tosca.model.workflow.activities.CallOperationWorkflowActivity"
+	// InlineWorkflowActivityType is the type of an inline workflow activity
+	InlineWorkflowActivityType = "org.alien4cloud.tosca.model.workflow.activities.InlineWorkflowActivity"
+	// SetStateWorkflowActivityType is the type of an activity setting the state of a component
+	SetStateWorkflowActivityType = "org.alien4cloud.tosca.model.workflow.activities.SetStateWorkflowActivity"
+	// DelegateWorkflowActivity is the type of an activity delegated to an orchestrator
+	DelegateWorkflowActivity = "org.alien4cloud.tosca.model.workflow.activities.DelegateWorkflowActivity"
+
+	// StepStarted is the status of a workflow step that is started (currently running, not yet completed)
+	StepStarted = "STARTED"
+	// StepCompletedSuccessfull is the status of a workflow step that has completed successfully
+	StepCompletedSuccessfull = "COMPLETED_SUCCESSFULL"
+	// StepCompletedSuccessfull is the status of a workflow step that has failed
+	StepCompletedWithError = "COMPLETED_WITH_ERROR"
 )
 
 // WorkflowActivity is a workflow activity payload.
@@ -50,7 +62,7 @@ func (wa *WorkflowActivity) AppendAfter(stepName string) *WorkflowActivity {
 // OperationCall allows to configure the workflow activity to be an operation call activity
 // targetRelationship is optional and applies only on relationships-related operations
 func (wa *WorkflowActivity) OperationCall(target, targetRelationship, interfaceName, operationName string) *WorkflowActivity {
-	wa.activitytype = callOperationWorkflowActivityType
+	wa.activitytype = CallOperationWorkflowActivityType
 	wa.target = target
 	wa.targetRelationship = targetRelationship
 	wa.interfaceName = interfaceName
@@ -60,14 +72,14 @@ func (wa *WorkflowActivity) OperationCall(target, targetRelationship, interfaceN
 
 // InlineWorkflow allows to configure the workflow activity to be an inline workflow activity
 func (wa *WorkflowActivity) InlineWorkflow(inlineWorkflow string) *WorkflowActivity {
-	wa.activitytype = inlineWorkflowActivityType
+	wa.activitytype = InlineWorkflowActivityType
 	wa.inline = inlineWorkflow
 	return wa
 }
 
 // SetState allows to configure the workflow activity to be an inline workflow call
 func (wa *WorkflowActivity) SetState(target, stateName string) *WorkflowActivity {
-	wa.activitytype = setStateWorkflowActivityType
+	wa.activitytype = SetStateWorkflowActivityType
 	wa.target = target
 	wa.stateName = stateName
 	return wa
@@ -133,13 +145,15 @@ func (t *topologyService) AddWorkflowActivity(ctx context.Context, a4cCtx *Topol
 	}
 
 	switch activity.activitytype {
-	case setStateWorkflowActivityType:
+	case SetStateWorkflowActivityType:
 		req.Activity.StateName = activity.stateName
-	case inlineWorkflowActivityType:
+	case InlineWorkflowActivityType:
 		req.Activity.Inline = activity.inline
-	case callOperationWorkflowActivityType:
+	case CallOperationWorkflowActivityType:
 		req.Activity.InterfaceName = activity.interfaceName
 		req.Activity.OperationName = activity.operationName
+	default:
+		return errors.Errorf("Unenexpected activity type %s", activity.activitytype)
 	}
 	err := t.editTopology(ctx, a4cCtx, req)
 	return errors.Wrapf(err, "Unable to add activity to workflow %q in topology of application %q and environment %q", workflowName, a4cCtx.AppID, a4cCtx.EnvID)

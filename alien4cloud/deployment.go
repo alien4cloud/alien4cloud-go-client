@@ -61,7 +61,7 @@ type DeploymentService interface {
 	// Returns the application deployment attributes for the specified instance of a node name
 	GetInstanceAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName, instanceName string, requestedAttributesName []string) (map[string]string, error)
 	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID
-	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error)
+	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*Execution, error)
 	// Runs a workflow asynchronously returning the execution id, results will be notified using the ExecutionCallback function.
 	// Cancelling the context cancels the function that monitor the execution
 	RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error)
@@ -73,13 +73,13 @@ type DeploymentService interface {
 	// - deploymentID allows to search executions of a specific deployment but may be empty
 	// - query allows to search a specific execution but may be empty
 	// - from and size allows to paginate results
-	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]WorkflowExecution, FacetedSearchResult, error)
+	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]Execution, FacetedSearchResult, error)
 	// Cancels execution for given environmentID and executionID
 	CancelExecution(ctx context.Context, environmentID string, executionID string) error
 }
 
 // ExecutionCallback is a function call by asynchronous operations when an execution reaches a terminal state
-type ExecutionCallback func(*WorkflowExecution, error)
+type ExecutionCallback func(*Execution, error)
 
 type deploymentService struct {
 	client             restClient
@@ -573,15 +573,15 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 }
 
 // RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
-func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*WorkflowExecution, error) {
+func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*Execution, error) {
 	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
 	defer cancelFunc()
 
-	var wfExec *WorkflowExecution
+	var execParam *Execution
 	doneCh := make(chan struct{})
 	var cbErr error
-	_, err := d.RunWorkflowAsync(ctx, a4cAppID, a4cEnvID, workflowName, func(exec *WorkflowExecution, e error) {
-		wfExec = exec
+	_, err := d.RunWorkflowAsync(ctx, a4cAppID, a4cEnvID, workflowName, func(exec *Execution, e error) {
+		execParam = exec
 		cbErr = e
 		close(doneCh)
 	})
@@ -590,7 +590,7 @@ func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4
 	}
 
 	<-doneCh
-	return wfExec, cbErr
+	return execParam, cbErr
 }
 
 // GetLastWorkflowExecution return a4c workflow execution for the given applicationID and environmentID
@@ -614,12 +614,10 @@ func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applic
 	}
 
 	var res struct {
-		Data struct {
-			Execution WorkflowExecution `json:"execution"`
-		} `json:"data"`
+		Data WorkflowExecution `json:"data"`
 	}
 
 	err = processA4CResponse(response, &res, http.StatusOK)
-	return &res.Data.Execution, errors.Wrap(err, "Unable to get content of the execution status response")
+	return &res.Data, errors.Wrap(err, "Unable to get content of the execution status response")
 
 }

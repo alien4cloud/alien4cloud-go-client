@@ -294,11 +294,11 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *WorkflowExecution
+		want    *Execution
 		wantErr bool
 	}{
 		{"Normal", args{context.Background(), "app", "env", "wf", 5 * time.Minute},
-			&WorkflowExecution{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
+			&Execution{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
 			false,
 		},
 		{"EmptyExecID", args{context.Background(), "emptyExecID", "env", "wf", 5 * time.Minute}, nil, true},

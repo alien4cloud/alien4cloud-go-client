@@ -284,19 +284,19 @@ type Location struct {
 
 // Deployment is the representation a deployment
 type Deployment struct {
-	DeploymentUsername       string      `json:"deploymentUsername"`
-	EndDate                  Time        `json:"endDate"`
-	EnvironmentID            string      `json:"environmentId"`
-	ID                       string      `json:"id"`
-	LocationIds              []string    `json:"locationIds"`
-	OrchestratorDeploymentID string      `json:"orchestratorDeploymentId"`
-	OrchestratorID           string      `json:"orchestratorId"`
-	SourceID                 string      `json:"sourceId"`
-	SourceName               string      `json:"sourceName"`
-	SourceType               string      `json:"sourceType"`
-	StartDate                Time        `json:"startDate"`
-	VersionID                string      `json:"versionId"`
-	WorkflowExecutions       interface{} `json:"workflowExecutions"`
+	DeploymentUsername       string            `json:"deploymentUsername"`
+	EndDate                  Time              `json:"endDate"`
+	EnvironmentID            string            `json:"environmentId"`
+	ID                       string            `json:"id"`
+	LocationIds              []string          `json:"locationIds"`
+	OrchestratorDeploymentID string            `json:"orchestratorDeploymentId"`
+	OrchestratorID           string            `json:"orchestratorId"`
+	SourceID                 string            `json:"sourceId"`
+	SourceName               string            `json:"sourceName"`
+	SourceType               string            `json:"sourceType"`
+	StartDate                Time              `json:"startDate"`
+	VersionID                string            `json:"versionId"`
+	WorkflowExecutions       map[string]string `json:"workflowExecutions"`
 }
 
 // PropertyValue holds the definition of a property value
@@ -340,6 +340,36 @@ type DeploymentArtifact struct {
 	Description          string                 `json:"description,omitempty"`
 }
 
+// Activity holds a workflow activity properties
+type Activity struct {
+	Type          string `json:"type,omitempty"`
+	InterfaceName string `json:"interfaceName,omitempty"` // for activities of type org.alien4cloud.tosca.model.workflow.activities.CallOperationWorkflowActivity
+	OperationName string `json:"operationName,omitempty"` // for activities of type org.alien4cloud.tosca.model.workflow.activities.CallOperationWorkflowActivity
+	Delegate      string `json:"delegate,omitempty"`      // for activities of type org.alien4cloud.tosca.model.workflow.activities.DelegateWorkflowActivity
+	StateName     string `json:"stateName,omitempty"`     // for activities of type org.alien4cloud.tosca.model.workflow.activities.SetStateWorkflowActivity
+	Inline        string `json:"inline,omitempty"`        // for activities of type org.alien4cloud.tosca.model.workflow.activities.InlineWorkflowActivity
+}
+
+// WorkflowStep holds a workflow step properties
+type WorkflowStep struct {
+	Name           string     `json:"name,omitempty"`
+	Target         string     `json:"target,omitempty"`
+	OperationHost  string     `json:"operationHost,omitempty"`
+	Activities     []Activity `json:"activities,omitempty"`
+	OnSuccess      []string   `json:"onSuccess,omitempty"`
+	OnFailure      []string   `json:"onFailure,omitempty"`
+	PrecedingSteps []string   `json:"precedingSteps,omitempty"`
+}
+
+// Workflow holds a workflow properties
+type Workflow struct {
+	Name        string                        `json:"name,omitempty"`
+	Description string                        `json:"description,omitempty"`
+	Metadata    map[string]string             `json:"metadata,omitempty"`
+	Inputs      map[string]PropertyDefinition `json:"inputs,omitempty"`
+	Steps       map[string]WorkflowStep       `json:"steps,omitempty"`
+}
+
 // Topology is the representation a topology template
 type Topology struct {
 	Data struct {
@@ -355,6 +385,7 @@ type Topology struct {
 			InputArtifacts          map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
 			DeployerInputProperties map[string]PropertyValue      `json:"deployerInputProperties,omitempty"`
 			UploadedInputArtifacts  map[string]DeploymentArtifact `json:"uploadedinputArtifacts,omitempty"`
+			Workflows               map[string]Workflow           `json:"workflows,omitempty"`
 		} `json:"topology"`
 	} `json:"data"`
 }
@@ -563,8 +594,30 @@ type LogFilter struct {
 	ExecutionID []string `json:"executionId,omitempty"`
 }
 
+// WorkflowStepInstance holds properties of a workflow step instance
+type WorkflowStepInstance struct {
+	ID               string `json:"id,omitempty"`
+	StepId           string `json:"stepId,omitempty"`
+	DeploymentId     string `json:"deploymentId,omitempty"`
+	ExecutionId      string `json:"executionId,omitempty"`
+	NodeId           string `json:"nodeId,omitempty"`
+	InstanceId       string `json:"instanceId,omitempty"`
+	TargetNodeId     string `json:"targetNodeId,omitempty"`
+	TargetInstanceId string `json:"targetInstanceId,omitempty"`
+	OperationName    string `json:"operationName,omitempty"`
+	HasFailedTasks   bool   `json:"hasFailedTasks,omitempty"`
+	Status           string `json:"status,omitempty"`
+}
+
 // WorkflowExecution represents rest api workflow execution
 type WorkflowExecution struct {
+	Execution     Execution                         `json:"execution,omitempty"`
+	StepStatus    map[string]string                 `json:"stepStatus,omitempty"`
+	StepInstances map[string][]WorkflowStepInstance `json:"stepInstances,omitempty"`
+}
+
+// Execution hold properties of the execution of a workflow
+type Execution struct {
 	ID                  string `json:"id"`
 	DeploymentID        string `json:"deploymentId"`
 	WorkflowID          string `json:"workflowId"`

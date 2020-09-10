@@ -2,16 +2,16 @@ package alien4cloud
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
-	"encoding/json"
 
 	"github.com/pkg/errors"
 )
 
-func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]WorkflowExecution, FacetedSearchResult, error) {
+func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]Execution, FacetedSearchResult, error) {
 	u := fmt.Sprintf("%s/executions/search?from=%s&size=%s", a4CRestAPIPrefix, url.QueryEscape(strconv.Itoa(from)), url.QueryEscape(strconv.Itoa(size)))
 
 	if deploymentID != "" {
@@ -34,8 +34,8 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 
 	var res struct {
 		Data struct {
-			Types []string            `json:"types"`
-			Data  []WorkflowExecution `json:"data"`
+			Types []string    `json:"types"`
+			Data  []Execution `json:"data"`
 			FacetedSearchResult
 		} `json:"data"`
 	}
@@ -46,11 +46,10 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 
 func (d *deploymentService) CancelExecution(ctx context.Context, environmentID string, executionID string) error {
 
-
 	cancelExecBody, err := json.Marshal(
 		CancelExecRequest{
 			EnvironmentID: environmentID,
-			ExecutionID: executionID,
+			ExecutionID:   executionID,
 		},
 	)
 	if err != nil {
@@ -63,7 +62,7 @@ func (d *deploymentService) CancelExecution(ctx context.Context, environmentID s
 		[]byte(string(cancelExecBody)),
 		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
-	
+
 	if err != nil {
 		return errors.Wrapf(err, "Failed to cancel execution for execution '%s' on environment '%s'", executionID, environmentID)
 	}
