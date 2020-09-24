@@ -44,6 +44,7 @@ type Client interface {
 	OrchestratorService() OrchestratorService
 	TopologyService() TopologyService
 	CatalogService() CatalogService
+	// UserService() UserService
 }
 
 const (
