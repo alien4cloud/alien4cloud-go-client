@@ -44,7 +44,7 @@ type Client interface {
 	OrchestratorService() OrchestratorService
 	TopologyService() TopologyService
 	CatalogService() CatalogService
-	// UserService() UserService
+	UserService() UserService
 }
 
 const (
@@ -101,6 +101,15 @@ const (
 	FunctionConcat = "concat"
 	// FunctionGetInput is a function used in attribute/property values to reference an input property
 	FunctionGetInput = "get_input"
+
+	// ROLE_ADMIN is the adminstrator role
+	ROLE_ADMIN = "ADMIN"
+	// ROLE_COMPONENTS_MANAGER allows to define packages on how to install, configure, start and connect components (mapped as node types)
+	ROLE_COMPONENTS_MANAGER = "COMPONENTS_MANAGER"
+	// ROLE_ARCHITECT allows to define application templates (topologies) by reusing building blocks (node types defined by components managers)
+	ROLE_ARCHITECT = "ARCHITECT"
+	// ROLE_APPLICATIONS_MANAGER allows to define applications with it’s own topologies that can be linked to a global topology from architects and that can reuse components defined by the components managers
+	ROLE_APPLICATIONS_MANAGER = "APPLICATIONS_MANAGER"
 )
 
 const (
@@ -125,6 +134,7 @@ type a4cClient struct {
 	orchestratorService *orchestratorService
 	topologyService     *topologyService
 	catalogService      *catalogService
+	userService         *userService
 }
 
 // NewClient instanciates and returns Client
@@ -199,6 +209,7 @@ func NewClient(address string, user string, password string, caFile string, skip
 	catService := catalogService{restClient}
 	appService := applicationService{restClient, &topoService}
 	deployService := deploymentService{restClient, &appService, &topoService}
+	userService := userService{restClient}
 	return &a4cClient{
 		client:              restClient,
 		applicationService:  &appService,
@@ -208,6 +219,7 @@ func NewClient(address string, user string, password string, caFile string, skip
 		orchestratorService: &orchestratorService{restClient},
 		topologyService:     &topoService,
 		catalogService:      &catService,
+		userService:         &userService,
 	}, nil
 }
 
@@ -268,6 +280,11 @@ func (c *a4cClient) TopologyService() TopologyService {
 // CatalogService retrieves the Catalog Service
 func (c *a4cClient) CatalogService() CatalogService {
 	return c.catalogService
+}
+
+// UserService retrieves the User Service
+func (c *a4cClient) UserService() UserService {
+	return c.userService
 }
 
 // do requests the alien4cloud rest api with a Context that can be canceled

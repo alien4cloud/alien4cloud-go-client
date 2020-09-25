@@ -36,16 +36,16 @@ type UserService interface {
 	// DeleteUser deletes a user
 	DeleteUser(ctx context.Context, userName string) error
 	// AddRole adds a role to a user
-	AddRole(ctx context.Context, userName, role string) Error
+	AddRole(ctx context.Context, userName, role string) error
 	// RemoveRole removes a role that was granted user
-	RemoveRole(ctx context.Context, userName, role string) Error
+	RemoveRole(ctx context.Context, userName, role string) error
 
 	// CreateGroup creates a group and returns its identifier
 	CreateGroup(ctx context.Context, createRequest CreateGroupRequest) (string, error)
 	// UpdateGroup updates a group parameters
 	UpdateGroup(ctx context.Context, groupID string, updateRequest UpdateGroupRequest) error
 	// GetGroup returns the parameters of a group whose identifier is provided in argument
-	GetGroup(ctx context.Context, groupID string) (Group, error)
+	GetGroup(ctx context.Context, groupID string) (*Group, error)
 	// GetGroups returns the parameters of groups whose identifiers are provided in argument
 	GetGroups(ctx context.Context, groupIDs []string) ([]Group, error)
 	// DeleteGroup deletes a group
@@ -55,6 +55,8 @@ type UserService interface {
 type userService struct {
 	client restClient
 }
+
+const userEndpointFormat = "%s/users/%s"
 
 // CreateUser creates a user
 func (u *userService) CreateUser(ctx context.Context, createRequest CreateUserRequest) error {
@@ -87,7 +89,7 @@ func (u *userService) UpdateUser(ctx context.Context, userName string, updateReq
 
 	response, err := u.client.doWithContext(ctx,
 		"PUT",
-		fmt.Sprintf("%s/users/%s", a4CRestAPIPrefix, userName),
+		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
 		req,
 		[]Header{contentTypeAppJSONHeader},
 	)
@@ -102,7 +104,7 @@ func (u *userService) UpdateUser(ctx context.Context, userName string, updateReq
 func (u *userService) GetUser(ctx context.Context, userName string) (*User, error) {
 	response, err := u.client.doWithContext(ctx,
 		"GET",
-		fmt.Sprintf("%s/users/%s", a4CRestAPIPrefix, userName),
+		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
 		nil,
 		nil)
 
@@ -159,7 +161,7 @@ func (u *userService) DeleteUser(ctx context.Context, userName string) error {
 
 	response, err := u.client.doWithContext(ctx,
 		"DELETE",
-		fmt.Sprintf("%s/users/%s", a4CRestAPIPrefix, userName),
+		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
 		nil,
 		nil)
 
@@ -199,12 +201,13 @@ func (u *userService) RemoveRole(ctx context.Context, userName, roleName string)
 	return processA4CResponse(response, nil, http.StatusOK)
 }
 
-// CreateGroup creates a group
-func (u *userService) CreateGroup(ctx context.Context, createRequest CreateGroupRequest) error {
+// CreateGroup creates a group and returns the identifier of the created group
+func (u *userService) CreateGroup(ctx context.Context, createRequest CreateGroupRequest) (string, error) {
 
+	var groupID string
 	req, err := json.Marshal(createRequest)
 	if err != nil {
-		return errors.Wrap(err, "Unable to marshal create request")
+		return groupID, errors.Wrap(err, "Unable to marshal create request")
 	}
 
 	response, err := u.client.doWithContext(ctx,
@@ -215,9 +218,21 @@ func (u *userService) CreateGroup(ctx context.Context, createRequest CreateGroup
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "Unable to send request to create a group")
+		return groupID, errors.Wrap(err, "Unable to send request to create a group")
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+
+	var res struct {
+		Data  string `json:"data,omitempty"`
+		Error Error  `json:"error,omitempty"`
+	}
+
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return groupID, err
+	}
+
+	return res.Data, err
+
 }
 
 // UpdateGroup updates a group parameters
