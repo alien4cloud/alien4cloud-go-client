@@ -56,7 +56,10 @@ type userService struct {
 	client restClient
 }
 
-const userEndpointFormat = "%s/users/%s"
+const (
+	userEndpointFormat  = "%s/users/%s"
+	groupEndpointFormat = "%s/groups/%s"
+)
 
 // CreateUser creates a user
 func (u *userService) CreateUser(ctx context.Context, createRequest CreateUserRequest) error {
@@ -245,7 +248,7 @@ func (u *userService) UpdateGroup(ctx context.Context, groupID string, updateReq
 
 	response, err := u.client.doWithContext(ctx,
 		"PUT",
-		fmt.Sprintf("%s/groups/%s", a4CRestAPIPrefix, groupID),
+		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
 		req,
 		[]Header{contentTypeAppJSONHeader},
 	)
@@ -260,7 +263,7 @@ func (u *userService) UpdateGroup(ctx context.Context, groupID string, updateReq
 func (u *userService) GetGroup(ctx context.Context, groupID string) (*Group, error) {
 	response, err := u.client.doWithContext(ctx,
 		"GET",
-		fmt.Sprintf("%s/groups/%s", a4CRestAPIPrefix, groupID),
+		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
 		nil,
 		nil)
 
@@ -317,7 +320,7 @@ func (u *userService) DeleteGroup(ctx context.Context, groupID string) error {
 
 	response, err := u.client.doWithContext(ctx,
 		"DELETE",
-		fmt.Sprintf("%s/groups/%s", a4CRestAPIPrefix, groupID),
+		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
 		nil,
 		nil)
 
