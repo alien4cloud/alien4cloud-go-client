@@ -33,6 +33,9 @@ type UserService interface {
 	GetUser(ctx context.Context, userName string) (*User, error)
 	// GetUsers returns the parameters of users whose names are provided in argument
 	GetUsers(ctx context.Context, userNames []string) ([]User, error)
+	// SearchUsers searches for users and returns an array of users as well as the
+	// total number of users matching the search request
+	SearchUsers(ctx context.Context, searchRequest SearchRequest) ([]User, int, error)
 	// DeleteUser deletes a user
 	DeleteUser(ctx context.Context, userName string) error
 	// AddRole adds a role to a user
@@ -48,6 +51,9 @@ type UserService interface {
 	GetGroup(ctx context.Context, groupID string) (*Group, error)
 	// GetGroups returns the parameters of groups whose identifiers are provided in argument
 	GetGroups(ctx context.Context, groupIDs []string) ([]Group, error)
+	// SearchGroups searches for groups and returns an array of groups as well as the
+	// total number of groups matching the search request
+	SearchGroups(ctx context.Context, searchRequest SearchRequest) ([]Group, int, error)
 	// DeleteGroup deletes a group
 	DeleteGroup(ctx context.Context, groupID string) error
 }
@@ -132,7 +138,7 @@ func (u *userService) GetUser(ctx context.Context, userName string) (*User, erro
 func (u *userService) GetUsers(ctx context.Context, userNames []string) ([]User, error) {
 	req, err := json.Marshal(userNames)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to marshal uner names")
+		return nil, errors.Wrap(err, "Unable to marshal user names")
 	}
 
 	response, err := u.client.doWithContext(ctx,
@@ -157,6 +163,41 @@ func (u *userService) GetUsers(ctx context.Context, userNames []string) ([]User,
 	}
 
 	return res.Data, err
+}
+
+// SearchUsers searches for users and returns an array of users as well as the
+// total number of users matching the search request
+func (u *userService) SearchUsers(ctx context.Context, searchRequest SearchRequest) ([]User, int, error) {
+	req, err := json.Marshal(searchRequest)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Unable to marshal search request")
+	}
+
+	response, err := u.client.doWithContext(ctx,
+		"POST",
+		fmt.Sprintf("%s/users/search", a4CRestAPIPrefix),
+		req,
+		[]Header{contentTypeAppJSONHeader},
+	)
+
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "Unable to send request to search users %v", searchRequest)
+	}
+
+	var res struct {
+		Data struct {
+			Data         []User `json:"data,omitempty"`
+			TotalResults int    `json:"totalResults"`
+		} `json:"data,omitempty"`
+		Error Error `json:"error,omitempty"`
+	}
+
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return res.Data.Data, res.Data.TotalResults, err
 }
 
 // DeleteUser deletes a user
@@ -288,7 +329,7 @@ func (u *userService) GetGroup(ctx context.Context, groupID string) (*Group, err
 func (u *userService) GetGroups(ctx context.Context, groupIDs []string) ([]Group, error) {
 	req, err := json.Marshal(groupIDs)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to marshal uner names")
+		return nil, errors.Wrap(err, "Unable to marshal group IDs")
 	}
 
 	response, err := u.client.doWithContext(ctx,
@@ -313,6 +354,41 @@ func (u *userService) GetGroups(ctx context.Context, groupIDs []string) ([]Group
 	}
 
 	return res.Data, err
+}
+
+// SearchGroups searches for groups and returns an array of groups as well as the
+// total number of groups matching the search request
+func (u *userService) SearchGroups(ctx context.Context, searchRequest SearchRequest) ([]Group, int, error) {
+	req, err := json.Marshal(searchRequest)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Unable to marshal search request")
+	}
+
+	response, err := u.client.doWithContext(ctx,
+		"POST",
+		fmt.Sprintf("%s/groups/search", a4CRestAPIPrefix),
+		req,
+		[]Header{contentTypeAppJSONHeader},
+	)
+
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "Unable to send request to search groups %v", searchRequest)
+	}
+
+	var res struct {
+		Data struct {
+			Data         []Group `json:"data,omitempty"`
+			TotalResults int     `json:"totalResults"`
+		} `json:"data,omitempty"`
+		Error Error `json:"error,omitempty"`
+	}
+
+	err = processA4CResponse(response, &res, http.StatusOK)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return res.Data.Data, res.Data.TotalResults, err
 }
 
 // DeleteGroup deletes a group

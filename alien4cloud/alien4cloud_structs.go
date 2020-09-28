@@ -189,11 +189,11 @@ type SimpleMark struct {
 	Column int `json:"column,omitempty"`
 }
 
-// searchRequest is the representation of a request to search objects as tpologies, orchestrators in the A4C catalog
-type searchRequest struct {
+// SearchRequest is the representation of a request to search objects such as topologies, orchestrators in the A4C catalog
+type SearchRequest struct {
 	Query string `json:"query,omitempty"`
-	From  string `json:"from"`
-	Size  string `json:"size"`
+	From  int    `json:"from,omitempty"`
+	Size  int    `json:"size,omitempty"`
 }
 
 // logsSearchRequest is the representation of a request to search logs of an application in the A4C catalog
@@ -712,8 +712,8 @@ type UpdateUserRequest struct {
 
 // User hosts an Alien4Cloud user properties
 type User struct {
-	Username  string   `json:"username"`
-	Password  string   `json:"password,omitempty"`
+	Username string `json:"username"`
+	//Password  string   `json:"password,omitempty"`
 	FirstName string   `json:"firstName,omitempty"`
 	LastName  string   `json:"lastName,omitempty"`
 	Email     string   `json:"email,omitempty"`

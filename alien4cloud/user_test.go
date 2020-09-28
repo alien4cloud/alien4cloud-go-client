@@ -17,6 +17,7 @@ package alien4cloud
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -261,6 +262,86 @@ func Test_userService_TestGetUsers(t *testing.T) {
 				t.Errorf("userService.GetUsers() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
 				assert.Equal(t, len(tt.args.usernames), len(userResp), "Unexpected result for GetUsers: %+v", userResp)
+			}
+		})
+	}
+}
+
+func Test_userService_TestSearchUsers(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/users/search`).Match([]byte(r.URL.Path)):
+
+			var req SearchRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+
+			err = json.Unmarshal(rb, &req)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+
+			var res struct {
+				Data struct {
+					Data         []User `json:"data,omitempty"`
+					TotalResults int    `json:"totalResults"`
+				} `json:"data,omitempty"`
+				Error Error `json:"error,omitempty"`
+			}
+
+			totalUsers := 10
+			nbUsers := req.Size
+			if nbUsers > (totalUsers - req.From) {
+				nbUsers = totalUsers - req.From
+			}
+			users := make([]User, nbUsers)
+			idx := 0
+			for i := req.From; i < nbUsers+req.From; i++ {
+				users[idx].Username = fmt.Sprintf("User%d", i)
+				idx++
+			}
+			res.Data.Data = users
+			res.Data.TotalResults = totalUsers
+			w.WriteHeader(http.StatusOK)
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				_, _ = w.Write(b)
+			}
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx           context.Context
+		searchRequest SearchRequest
+	}
+	tests := []struct {
+		name      string
+		args      args
+		firstUser string
+		wantSize  int
+	}{
+		{"Partial", args{context.Background(), SearchRequest{From: 1, Size: 2}}, "User1", 2},
+		{"Total", args{context.Background(), SearchRequest{From: 0, Size: 100}}, "User0", 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			userResp, totalNb, err := uServ.SearchUsers(tt.args.ctx, tt.args.searchRequest)
+			if err != nil {
+				t.Errorf("userService.SearchUsers() unexpected error = %v", err)
+			} else {
+				assert.Equal(t, 10, totalNb, "Unexpected total number of users returned by SearchUsers: %d", totalNb)
+				assert.Equal(t, tt.wantSize, len(userResp), "Unexpected number of users returned by SearchUsers: %d", len(userResp))
+				assert.Equal(t, tt.firstUser, userResp[0].Username, "Unexpected first user returned by SearchUsers: %s", userResp[0].Username)
 			}
 		})
 	}
@@ -597,6 +678,86 @@ func Test_userService_TestGetGroups(t *testing.T) {
 				t.Errorf("userService.GeGroups() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
 				assert.Equal(t, len(tt.args.groupIDs), len(groupResp), "Unexpected result for GetGroups: %+v", groupResp)
+			}
+		})
+	}
+}
+
+func Test_userService_TestSearchGroups(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/groups/search`).Match([]byte(r.URL.Path)):
+
+			var req SearchRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+
+			err = json.Unmarshal(rb, &req)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+
+			var res struct {
+				Data struct {
+					Data         []Group `json:"data,omitempty"`
+					TotalResults int     `json:"totalResults"`
+				} `json:"data,omitempty"`
+				Error Error `json:"error,omitempty"`
+			}
+
+			totalGroups := 10
+			nbGroups := req.Size
+			if nbGroups > (totalGroups - req.From) {
+				nbGroups = totalGroups - req.From
+			}
+			groups := make([]Group, nbGroups)
+			idx := 0
+			for i := req.From; i < nbGroups+req.From; i++ {
+				groups[idx].Name = fmt.Sprintf("Group%d", i)
+				idx++
+			}
+			res.Data.Data = groups
+			res.Data.TotalResults = totalGroups
+			w.WriteHeader(http.StatusOK)
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				_, _ = w.Write(b)
+			}
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx           context.Context
+		searchRequest SearchRequest
+	}
+	tests := []struct {
+		name       string
+		args       args
+		firstGroup string
+		wantSize   int
+	}{
+		{"Partial", args{context.Background(), SearchRequest{From: 1, Size: 2}}, "Group1", 2},
+		{"Total", args{context.Background(), SearchRequest{From: 0, Size: 100}}, "Group0", 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			groupResp, totalNb, err := uServ.SearchGroups(tt.args.ctx, tt.args.searchRequest)
+			if err != nil {
+				t.Errorf("userService.SearchGroups() unexpected error = %v", err)
+			} else {
+				assert.Equal(t, 10, totalNb, "Unexpected total number of users returned by SearchGroups: %d", totalNb)
+				assert.Equal(t, tt.wantSize, len(groupResp), "Unexpected number of users returned by SearchGroups: %d", len(groupResp))
+				assert.Equal(t, tt.firstGroup, groupResp[0].Name, "Unexpected first user returned by SearchGroups: %s", groupResp[0].Name)
 			}
 		})
 	}
