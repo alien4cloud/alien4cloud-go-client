@@ -28,6 +28,7 @@ import (
 
 func Test_userService_TestCreateUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/users`).Match([]byte(r.URL.Path)):
 			var req CreateUserRequest
@@ -35,7 +36,6 @@ func Test_userService_TestCreateUser(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to read request body %+v", r)
 			}
-			defer r.Body.Close()
 
 			err = json.Unmarshal(rb, &req)
 			if err != nil {
@@ -45,7 +45,7 @@ func Test_userService_TestCreateUser(t *testing.T) {
 				var res struct {
 					Error Error `json:"error"`
 				}
-				res.Error.Code = http.StatusInternalServerError
+				res.Error.Code = http.StatusNotImplemented
 				res.Error.Message = "Method argument is invalid"
 				b, err := json.Marshal(&res)
 				if err != nil {
@@ -90,9 +90,9 @@ func Test_userService_TestCreateUser(t *testing.T) {
 
 func Test_userService_TestUpdateUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/users/wronguser`).Match([]byte(r.URL.Path)):
-			defer r.Body.Close()
 
 			var res struct {
 				Error Error `json:"error"`
@@ -134,7 +134,7 @@ func Test_userService_TestUpdateUser(t *testing.T) {
 				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.UpdateUser(tt.args.ctx, tt.args.username, tt.args.updateRequest); (err != nil) != tt.wantErr {
-				t.Errorf("userService.CreateUser() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("userService.UpdateUser() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -142,27 +142,29 @@ func Test_userService_TestUpdateUser(t *testing.T) {
 
 func Test_userService_TestGetUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var res struct {
+			Data  User  `json:"data"`
+			Error Error `json:"error"`
+		}
 		switch {
 		case regexp.MustCompile(`.*/users/expectedUser`).Match([]byte(r.URL.Path)):
-			defer r.Body.Close()
-
-			var res struct {
-				Data  User  `json:"data"`
-				Error Error `json:"error"`
-			}
 			res.Data.Username = "expectedUser"
-			b, err := json.Marshal(&res)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-			} else {
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write(b)
-			}
+			w.WriteHeader(http.StatusOK)
+
 		case regexp.MustCompile(`.*/users/.*`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
 		default:
 			t.Errorf("Unexpected request %s", r.URL.Path)
 		}
+
+		b, err := json.Marshal(&res)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			_, _ = w.Write(b)
+		}
+
 	}))
 
 	type args struct {
@@ -194,6 +196,7 @@ func Test_userService_TestGetUser(t *testing.T) {
 
 func Test_userService_TestGetUsers(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/users/getUsers`).Match([]byte(r.URL.Path)):
 
@@ -202,14 +205,11 @@ func Test_userService_TestGetUsers(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to read request body %+v", r)
 			}
-			defer r.Body.Close()
 
 			err = json.Unmarshal(rb, &req)
 			if err != nil {
 				t.Errorf("Failed to unmarshal request body %+v", r)
 			}
-
-			defer r.Body.Close()
 
 			var res struct {
 				Data  []User `json:"data"`
@@ -258,7 +258,7 @@ func Test_userService_TestGetUsers(t *testing.T) {
 			}
 			userResp, err := uServ.GetUsers(tt.args.ctx, tt.args.usernames)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("userService.GetUser() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("userService.GetUsers() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
 				assert.Equal(t, len(tt.args.usernames), len(userResp), "Unexpected result for GetUsers: %+v", userResp)
 			}
@@ -268,9 +268,9 @@ func Test_userService_TestGetUsers(t *testing.T) {
 
 func Test_userService_TestDeleteUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/users/.*`).Match([]byte(r.URL.Path)):
-			defer r.Body.Close()
 
 			w.WriteHeader(http.StatusOK)
 
@@ -304,9 +304,9 @@ func Test_userService_TestDeleteUser(t *testing.T) {
 
 func Test_userService_TestAddRemoveRole(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/users/.*/roles/badrole`).Match([]byte(r.URL.Path)):
-			defer r.Body.Close()
 
 			var res struct {
 				Error Error `json:"error"`
@@ -350,6 +350,289 @@ func Test_userService_TestAddRemoveRole(t *testing.T) {
 			}
 			if err := uServ.RemoveRole(tt.args.ctx, tt.args.username, tt.args.rolename); (err != nil) != tt.wantErr {
 				t.Errorf("userService.RemoveRole() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_userService_TestCreateGroup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/groups`).Match([]byte(r.URL.Path)):
+			var req CreateGroupRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+
+			err = json.Unmarshal(rb, &req)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+			var res struct {
+				Data  string `json:"data"`
+				Error Error  `json:"error"`
+			}
+			if req.Name == "" {
+				res.Error.Code = http.StatusNotImplemented
+				res.Error.Message = "Method argument is invalid"
+				w.WriteHeader(http.StatusNotImplemented)
+			} else {
+				res.Data = req.Name
+				w.WriteHeader(http.StatusOK)
+			}
+
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				_, _ = w.Write(b)
+			}
+
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx           context.Context
+		createRequest CreateGroupRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"UndefinedGroupName", args{context.Background(),
+			CreateGroupRequest{Name: "", Roles: []string{ROLE_ARCHITECT, ROLE_APPLICATIONS_MANAGER}}}, true},
+		{"DefinedGroupName", args{context.Background(),
+			CreateGroupRequest{Name: "newgroupname", Roles: []string{ROLE_ARCHITECT, ROLE_APPLICATIONS_MANAGER}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			var groupID string
+			var err error
+			if groupID, err = uServ.CreateGroup(tt.args.ctx, tt.args.createRequest); (err != nil) != tt.wantErr {
+				t.Errorf("userService.CreateGroup() error = %v, wantErr %v", err, tt.wantErr)
+			} else if err == nil {
+				assert.Equal(t, tt.args.createRequest.Name, groupID, "Unexpected result for CreateGroup: %+v", groupID)
+			}
+		})
+	}
+}
+
+func Test_userService_TestUpdateGroup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/groups/wronggroup`).Match([]byte(r.URL.Path)):
+
+			var res struct {
+				Error Error `json:"error"`
+			}
+			res.Error.Code = http.StatusGatewayTimeout
+			res.Error.Message = "Group [wronggroup] cannot be found"
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				w.WriteHeader(http.StatusGatewayTimeout)
+				_, _ = w.Write(b)
+			}
+		case regexp.MustCompile(`.*/groups/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx           context.Context
+		username      string
+		updateRequest UpdateGroupRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"WrongGroup", args{context.Background(), "wronggroup",
+			UpdateGroupRequest{Name: "unknown", Email: "passwd"}}, true},
+		{"ExistingGroup", args{context.Background(), "user1",
+			UpdateGroupRequest{Email: "group1@acme.com"}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			if err := uServ.UpdateGroup(tt.args.ctx, tt.args.username, tt.args.updateRequest); (err != nil) != tt.wantErr {
+				t.Errorf("userService.UpdateGroup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_userService_TestGetGroup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/groups/expectedGroupID`).Match([]byte(r.URL.Path)):
+
+			var res struct {
+				Data  Group `json:"data"`
+				Error Error `json:"error"`
+			}
+			res.Data.Name = "expectedGroupName"
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(b)
+			}
+		case regexp.MustCompile(`.*/users/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx     context.Context
+		groupID string
+	}
+	tests := []struct {
+		name          string
+		args          args
+		wantGroupName string
+		wantErr       bool
+	}{
+		{"ExistingUser", args{context.Background(), "expectedGroupID"}, "expectedGroupName", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			groupResp, err := uServ.GetGroup(tt.args.ctx, tt.args.groupID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("userService.GetGroup() error = %v, wantErr %v", err, tt.wantErr)
+			} else if err == nil {
+				assert.Equal(t, tt.wantGroupName, groupResp.Name, "Unexpected result for GetGroup: %+v", groupResp.Name)
+			}
+
+		})
+	}
+}
+
+func Test_userService_TestGetGroups(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/groups/getGroups`).Match([]byte(r.URL.Path)):
+
+			var req []string
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+
+			err = json.Unmarshal(rb, &req)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+
+			var res struct {
+				Data  []Group `json:"data"`
+				Error Error   `json:"error"`
+			}
+
+			if len(req) == 0 {
+				res.Error.Code = http.StatusNotImplemented
+				res.Error.Message = "ids cannot be null or empty"
+				w.WriteHeader(http.StatusNotImplemented)
+			} else {
+				groups := make([]Group, len(req))
+				for i := 0; i < len(req); i++ {
+					groups[i].Name = req[i]
+				}
+				res.Data = groups
+				w.WriteHeader(http.StatusOK)
+			}
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				_, _ = w.Write(b)
+			}
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx      context.Context
+		groupIDs []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"NoGroup", args{context.Background(), []string{}}, true},
+		{"Groups", args{context.Background(), []string{"groupID1", "groupID2"}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			groupResp, err := uServ.GetGroups(tt.args.ctx, tt.args.groupIDs)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("userService.GeGroups() error = %v, wantErr %v", err, tt.wantErr)
+			} else if err == nil {
+				assert.Equal(t, len(tt.args.groupIDs), len(groupResp), "Unexpected result for GetGroups: %+v", groupResp)
+			}
+		})
+	}
+}
+
+func Test_userService_TestDeleteGroup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		switch {
+		case regexp.MustCompile(`.*/groups/.*`).Match([]byte(r.URL.Path)):
+
+			w.WriteHeader(http.StatusOK)
+
+		default:
+			t.Errorf("Unexpected request %s", r.URL.Path)
+		}
+	}))
+
+	type args struct {
+		ctx     context.Context
+		groupID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteGroup", args{context.Background(), "groupID"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uServ := &userService{
+				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+			}
+			if err := uServ.DeleteGroup(tt.args.ctx, tt.args.groupID); (err != nil) != tt.wantErr {
+				t.Errorf("userService.DeleteGroup() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
