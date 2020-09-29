@@ -691,28 +691,9 @@ type CancelExecRequest struct {
 	ExecutionID   string `json:"executionId"`
 }
 
-// CreateUserRequest holds parameters of a requets to create a user
-type CreateUserRequest struct {
-	Username  string   `json:"username"`
-	Password  string   `json:"password,omitempty"`
-	FirstName string   `json:"firstName,omitempty"`
-	LastName  string   `json:"lastName,omitempty"`
-	Email     string   `json:"email,omitempty"`
-	Roles     []string `json:"roles,omitempty"`
-}
-
-// UpdateUserRequest holds parameters of a requets to update a sser
-type UpdateUserRequest struct {
-	Password  string   `json:"password,omitempty"`
-	FirstName string   `json:"firstName,omitempty"`
-	LastName  string   `json:"lastName,omitempty"`
-	Email     string   `json:"email,omitempty"`
-	Roles     []string `json:"roles,omitempty"`
-}
-
 // User hosts an Alien4Cloud user properties
 type User struct {
-	Username string `json:"username"`
+	UserName string `json:"username"`
 	//Password  string   `json:"password,omitempty"`
 	FirstName string   `json:"firstName,omitempty"`
 	LastName  string   `json:"lastName,omitempty"`
@@ -720,22 +701,14 @@ type User struct {
 	Roles     []string `json:"roles,omitempty"`
 }
 
-// CreateGroupRequest holds parameters of a requets to create a group
-type CreateGroupRequest struct {
-	Name        string   `json:"name"`
-	Email       string   `json:"email,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Users       []string `json:"users,omitempty"`
-	Roles       []string `json:"roles,omitempty"`
-}
-
-// UpdateUserRequest holds parameters of a requets to update a group
-type UpdateGroupRequest struct {
-	Name        string   `json:"name"`
-	Email       string   `json:"email,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Users       []string `json:"users,omitempty"`
-	Roles       []string `json:"roles,omitempty"`
+// CreateUserRequest holds parameters of a requets to create or update a user
+type CreateUpdateUserRequest struct {
+	UserName  string   `json:"username"`
+	FirstName string   `json:"firstName,omitempty"`
+	LastName  string   `json:"lastName,omitempty"`
+	Email     string   `json:"email,omitempty"`
+	Roles     []string `json:"roles,omitempty"`
+	Password  string   `json:"password,omitempty"`
 }
 
 // Group hosts an Alien4Cloud user properties
