@@ -32,7 +32,7 @@ func Test_userService_TestCreateUser(t *testing.T) {
 		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/users`).Match([]byte(r.URL.Path)):
-			var req CreateUserRequest
+			var req CreateUpdateUserRequest
 			rb, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				t.Errorf("Failed to read request body %+v", r)
@@ -42,7 +42,7 @@ func Test_userService_TestCreateUser(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to unmarshal request body %+v", r)
 			}
-			if req.Username == "" {
+			if req.UserName == "" {
 				var res struct {
 					Error Error `json:"error"`
 				}
@@ -65,7 +65,7 @@ func Test_userService_TestCreateUser(t *testing.T) {
 
 	type args struct {
 		ctx           context.Context
-		createRequest CreateUserRequest
+		createRequest CreateUpdateUserRequest
 	}
 	tests := []struct {
 		name    string
@@ -73,9 +73,9 @@ func Test_userService_TestCreateUser(t *testing.T) {
 		wantErr bool
 	}{
 		{"UndefinedUserName", args{context.Background(),
-			CreateUserRequest{Username: "", Password: "passwd"}}, true},
+			CreateUpdateUserRequest{UserName: "", Password: "passwd"}}, true},
 		{"DefinedUserName", args{context.Background(),
-			CreateUserRequest{Username: "user1", Password: "passwd"}}, false},
+			CreateUpdateUserRequest{UserName: "user1", Password: "passwd"}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,7 +117,7 @@ func Test_userService_TestUpdateUser(t *testing.T) {
 	type args struct {
 		ctx           context.Context
 		username      string
-		updateRequest UpdateUserRequest
+		updateRequest CreateUpdateUserRequest
 	}
 	tests := []struct {
 		name    string
@@ -125,9 +125,9 @@ func Test_userService_TestUpdateUser(t *testing.T) {
 		wantErr bool
 	}{
 		{"NotExistingUser", args{context.Background(), "wronguser",
-			UpdateUserRequest{FirstName: "unknown", Password: "passwd"}}, true},
+			CreateUpdateUserRequest{FirstName: "unknown", Password: "passwd"}}, true},
 		{"ExistingUser", args{context.Background(), "user1",
-			UpdateUserRequest{FirstName: "user1", Password: "passwd"}}, false},
+			CreateUpdateUserRequest{FirstName: "user1", Password: "passwd"}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -150,7 +150,7 @@ func Test_userService_TestGetUser(t *testing.T) {
 		}
 		switch {
 		case regexp.MustCompile(`.*/users/expectedUser`).Match([]byte(r.URL.Path)):
-			res.Data.Username = "expectedUser"
+			res.Data.UserName = "expectedUser"
 			w.WriteHeader(http.StatusOK)
 
 		case regexp.MustCompile(`.*/users/.*`).Match([]byte(r.URL.Path)):
@@ -188,7 +188,7 @@ func Test_userService_TestGetUser(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("userService.GetUser() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
-				assert.Equal(t, tt.args.username, userResp.Username, "Unexpected result for GetUser: %+v", userResp)
+				assert.Equal(t, tt.args.username, userResp.UserName, "Unexpected result for GetUser: %+v", userResp)
 			}
 
 		})
@@ -224,7 +224,7 @@ func Test_userService_TestGetUsers(t *testing.T) {
 			} else {
 				users := make([]User, len(req))
 				for i := 0; i < len(req); i++ {
-					users[i].Username = req[i]
+					users[i].UserName = req[i]
 				}
 				res.Data = users
 				w.WriteHeader(http.StatusOK)
@@ -300,7 +300,7 @@ func Test_userService_TestSearchUsers(t *testing.T) {
 			users := make([]User, nbUsers)
 			idx := 0
 			for i := req.From; i < nbUsers+req.From; i++ {
-				users[idx].Username = fmt.Sprintf("User%d", i)
+				users[idx].UserName = fmt.Sprintf("User%d", i)
 				idx++
 			}
 			res.Data.Data = users
@@ -341,7 +341,7 @@ func Test_userService_TestSearchUsers(t *testing.T) {
 			} else {
 				assert.Equal(t, 10, totalNb, "Unexpected total number of users returned by SearchUsers: %d", totalNb)
 				assert.Equal(t, tt.wantSize, len(userResp), "Unexpected number of users returned by SearchUsers: %d", len(userResp))
-				assert.Equal(t, tt.firstUser, userResp[0].Username, "Unexpected first user returned by SearchUsers: %s", userResp[0].Username)
+				assert.Equal(t, tt.firstUser, userResp[0].UserName, "Unexpected first user returned by SearchUsers: %s", userResp[0].UserName)
 			}
 		})
 	}
@@ -441,7 +441,7 @@ func Test_userService_TestCreateGroup(t *testing.T) {
 		defer r.Body.Close()
 		switch {
 		case regexp.MustCompile(`.*/groups`).Match([]byte(r.URL.Path)):
-			var req CreateGroupRequest
+			var req Group
 			rb, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				t.Errorf("Failed to read request body %+v", r)
@@ -478,7 +478,7 @@ func Test_userService_TestCreateGroup(t *testing.T) {
 
 	type args struct {
 		ctx           context.Context
-		createRequest CreateGroupRequest
+		createRequest Group
 	}
 	tests := []struct {
 		name    string
@@ -486,9 +486,9 @@ func Test_userService_TestCreateGroup(t *testing.T) {
 		wantErr bool
 	}{
 		{"UndefinedGroupName", args{context.Background(),
-			CreateGroupRequest{Name: "", Roles: []string{ROLE_ARCHITECT, ROLE_APPLICATIONS_MANAGER}}}, true},
+			Group{Name: "", Roles: []string{ROLE_ARCHITECT, ROLE_APPLICATIONS_MANAGER}}}, true},
 		{"DefinedGroupName", args{context.Background(),
-			CreateGroupRequest{Name: "newgroupname", Roles: []string{ROLE_ARCHITECT, ROLE_APPLICATIONS_MANAGER}}}, false},
+			Group{Name: "newgroupname", Roles: []string{ROLE_ARCHITECT, ROLE_APPLICATIONS_MANAGER}}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -534,7 +534,7 @@ func Test_userService_TestUpdateGroup(t *testing.T) {
 	type args struct {
 		ctx           context.Context
 		username      string
-		updateRequest UpdateGroupRequest
+		updateRequest Group
 	}
 	tests := []struct {
 		name    string
@@ -542,9 +542,9 @@ func Test_userService_TestUpdateGroup(t *testing.T) {
 		wantErr bool
 	}{
 		{"WrongGroup", args{context.Background(), "wronggroup",
-			UpdateGroupRequest{Name: "unknown", Email: "passwd"}}, true},
+			Group{Name: "unknown", Email: "passwd"}}, true},
 		{"ExistingGroup", args{context.Background(), "user1",
-			UpdateGroupRequest{Email: "group1@acme.com"}}, false},
+			Group{Email: "group1@acme.com"}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

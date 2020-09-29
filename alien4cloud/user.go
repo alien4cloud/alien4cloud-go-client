@@ -26,11 +26,11 @@ import (
 // UserService is the interface to the service mamaging users and groups
 type UserService interface {
 	// CreateUser creates a user
-	CreateUser(ctx context.Context, createRequest CreateUserRequest) error
+	CreateUser(ctx context.Context, createRequest CreateUpdateUserRequest) error
 	// UpdateUser updates a user parameters
-	UpdateUser(ctx context.Context, userName string, updateRequest UpdateUserRequest) error
+	UpdateUser(ctx context.Context, userName string, updateRequest CreateUpdateUserRequest) error
 	// GetUser returns the parameters of a user whose name is provided in argument
-	GetUser(ctx context.Context, userName string) (*User, error)
+	GetUser(ctx context.Context, userName string) (User, error)
 	// GetUsers returns the parameters of users whose names are provided in argument
 	GetUsers(ctx context.Context, userNames []string) ([]User, error)
 	// SearchUsers searches for users and returns an array of users as well as the
@@ -44,11 +44,12 @@ type UserService interface {
 	RemoveRole(ctx context.Context, userName, role string) error
 
 	// CreateGroup creates a group and returns its identifier
-	CreateGroup(ctx context.Context, createRequest CreateGroupRequest) (string, error)
+	CreateGroup(ctx context.Context, group Group) (string, error)
 	// UpdateGroup updates a group parameters
-	UpdateGroup(ctx context.Context, groupID string, updateRequest UpdateGroupRequest) error
+	UpdateGroup(ctx context.Context, groupID string, group Group) error
 	// GetGroup returns the parameters of a group whose identifier is provided in argument
-	GetGroup(ctx context.Context, groupID string) (*Group, error)
+	// returns nil if no such group was found
+	GetGroup(ctx context.Context, groupID string) (Group, error)
 	// GetGroups returns the parameters of groups whose identifiers are provided in argument
 	GetGroups(ctx context.Context, groupIDs []string) ([]Group, error)
 	// SearchGroups searches for groups and returns an array of groups as well as the
@@ -68,7 +69,7 @@ const (
 )
 
 // CreateUser creates a user
-func (u *userService) CreateUser(ctx context.Context, createRequest CreateUserRequest) error {
+func (u *userService) CreateUser(ctx context.Context, createRequest CreateUpdateUserRequest) error {
 
 	req, err := json.Marshal(createRequest)
 	if err != nil {
@@ -89,7 +90,7 @@ func (u *userService) CreateUser(ctx context.Context, createRequest CreateUserRe
 }
 
 // UpdateUser updates a user parameters
-func (u *userService) UpdateUser(ctx context.Context, userName string, updateRequest UpdateUserRequest) error {
+func (u *userService) UpdateUser(ctx context.Context, userName string, updateRequest CreateUpdateUserRequest) error {
 
 	req, err := json.Marshal(updateRequest)
 	if err != nil {
@@ -110,7 +111,12 @@ func (u *userService) UpdateUser(ctx context.Context, userName string, updateReq
 }
 
 // GetUser returns the parameters of a user whose name is provided in argument
-func (u *userService) GetUser(ctx context.Context, userName string) (*User, error) {
+func (u *userService) GetUser(ctx context.Context, userName string) (User, error) {
+	var res struct {
+		Data  User  `json:"data,omitempty"`
+		Error Error `json:"error,omitempty"`
+	}
+
 	response, err := u.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
@@ -118,20 +124,15 @@ func (u *userService) GetUser(ctx context.Context, userName string) (*User, erro
 		nil)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to send request to get user %s", userName)
-	}
-
-	var res struct {
-		Data  User  `json:"data,omitempty"`
-		Error Error `json:"error,omitempty"`
+		return res.Data, errors.Wrapf(err, "Unable to send request to get user %s", userName)
 	}
 
 	err = processA4CResponse(response, &res, http.StatusOK)
 	if err != nil {
-		return nil, err
+		return res.Data, err
 	}
 
-	return &res.Data, err
+	return res.Data, err
 }
 
 // GetUsers returns the parameters of a user whose name is provided in argument
@@ -246,10 +247,10 @@ func (u *userService) RemoveRole(ctx context.Context, userName, roleName string)
 }
 
 // CreateGroup creates a group and returns the identifier of the created group
-func (u *userService) CreateGroup(ctx context.Context, createRequest CreateGroupRequest) (string, error) {
+func (u *userService) CreateGroup(ctx context.Context, group Group) (string, error) {
 
 	var groupID string
-	req, err := json.Marshal(createRequest)
+	req, err := json.Marshal(group)
 	if err != nil {
 		return groupID, errors.Wrap(err, "Unable to marshal create request")
 	}
@@ -280,9 +281,9 @@ func (u *userService) CreateGroup(ctx context.Context, createRequest CreateGroup
 }
 
 // UpdateGroup updates a group parameters
-func (u *userService) UpdateGroup(ctx context.Context, groupID string, updateRequest UpdateGroupRequest) error {
+func (u *userService) UpdateGroup(ctx context.Context, groupID string, group Group) error {
 
-	req, err := json.Marshal(updateRequest)
+	req, err := json.Marshal(group)
 	if err != nil {
 		return errors.Wrap(err, "Unable to marshal update request")
 	}
@@ -301,7 +302,13 @@ func (u *userService) UpdateGroup(ctx context.Context, groupID string, updateReq
 }
 
 // GetGroup returns the parameters of a group whose name is provided in argument
-func (u *userService) GetGroup(ctx context.Context, groupID string) (*Group, error) {
+func (u *userService) GetGroup(ctx context.Context, groupID string) (Group, error) {
+
+	var res struct {
+		Data  Group `json:"data,omitempty"`
+		Error Error `json:"error,omitempty"`
+	}
+
 	response, err := u.client.doWithContext(ctx,
 		"GET",
 		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
@@ -309,20 +316,15 @@ func (u *userService) GetGroup(ctx context.Context, groupID string) (*Group, err
 		nil)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to send request to get group %s", groupID)
-	}
-
-	var res struct {
-		Data  Group `json:"data,omitempty"`
-		Error Error `json:"error,omitempty"`
+		return res.Data, errors.Wrapf(err, "Unable to send request to get group %s", groupID)
 	}
 
 	err = processA4CResponse(response, &res, http.StatusOK)
 	if err != nil {
-		return nil, err
+		return res.Data, err
 	}
 
-	return &res.Data, err
+	return res.Data, err
 }
 
 // GetGroups returns the parameters of a group whose name is provided in argument
