@@ -93,13 +93,13 @@ func (a *applicationService) CreateAppli(ctx context.Context, appName string, ap
 func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID string, envName string) (string, error) {
 
 	envsSearchBody, err := json.Marshal(
-		searchRequest{
-			From: "0",
-			Size: "20",
+		SearchRequest{
+			From: 0,
+			Size: 0,
 		},
 	)
 	if err != nil {
-		return "", errors.Wrap(err, "Cannot marshal a searchRequest structure")
+		return "", errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
 	response, err := a.client.doWithContext(ctx,
@@ -171,15 +171,15 @@ func (a *applicationService) IsApplicationExist(ctx context.Context, application
 func (a *applicationService) GetApplicationsID(ctx context.Context, filter string) ([]string, error) {
 
 	appsSearchBody, err := json.Marshal(
-		searchRequest{
+		SearchRequest{
 			filter,
-			"0",
-			"",
+			0,
+			0,
 		},
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "Cannot marshal an searchRequest structure")
+		return nil, errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
 	response, err := a.client.doWithContext(ctx,

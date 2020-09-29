@@ -189,11 +189,11 @@ type SimpleMark struct {
 	Column int `json:"column,omitempty"`
 }
 
-// searchRequest is the representation of a request to search objects as tpologies, orchestrators in the A4C catalog
-type searchRequest struct {
+// SearchRequest is the representation of a request to search objects such as topologies, orchestrators in the A4C catalog
+type SearchRequest struct {
 	Query string `json:"query,omitempty"`
-	From  string `json:"from"`
-	Size  string `json:"size"`
+	From  int    `json:"from,omitempty"`
+	Size  int    `json:"size,omitempty"`
 }
 
 // logsSearchRequest is the representation of a request to search logs of an application in the A4C catalog
@@ -689,4 +689,33 @@ type FacetedSearchResult struct {
 type CancelExecRequest struct {
 	EnvironmentID string `json:"environmentId"`
 	ExecutionID   string `json:"executionId"`
+}
+
+// User hosts an Alien4Cloud user properties
+type User struct {
+	UserName string `json:"username"`
+	//Password  string   `json:"password,omitempty"`
+	FirstName string   `json:"firstName,omitempty"`
+	LastName  string   `json:"lastName,omitempty"`
+	Email     string   `json:"email,omitempty"`
+	Roles     []string `json:"roles,omitempty"`
+}
+
+// CreateUserRequest holds parameters of a requets to create or update a user
+type CreateUpdateUserRequest struct {
+	UserName  string   `json:"username"`
+	FirstName string   `json:"firstName,omitempty"`
+	LastName  string   `json:"lastName,omitempty"`
+	Email     string   `json:"email,omitempty"`
+	Roles     []string `json:"roles,omitempty"`
+	Password  string   `json:"password,omitempty"`
+}
+
+// Group hosts an Alien4Cloud user properties
+type Group struct {
+	Name        string   `json:"name"`
+	Email       string   `json:"email,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Users       []string `json:"users,omitempty"`
+	Roles       []string `json:"roles,omitempty"`
 }

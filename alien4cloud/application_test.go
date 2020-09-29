@@ -159,7 +159,7 @@ func newHTTPServerTestApplicationSearch(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if regexp.MustCompile(`.*/applications`).Match([]byte(r.URL.Path)) {
 
-			var searchReq searchRequest
+			var searchReq SearchRequest
 			rb, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				t.Errorf("Failed to read request body %+v", r)

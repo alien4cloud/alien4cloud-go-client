@@ -78,10 +78,10 @@ func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orch
 // GetOrchestratorIDbyName Return the Alien4Cloud orchestrator ID from a given orchestator name
 func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orchestratorName string) (string, error) {
 
-	orchestratorsSearchBody, err := json.Marshal(searchRequest{orchestratorName, "0", "1"})
+	orchestratorsSearchBody, err := json.Marshal(SearchRequest{orchestratorName, 0, 1})
 
 	if err != nil {
-		return "", errors.Wrap(err, "Cannot marshal an searchRequest structure")
+		return "", errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
 	response, err := o.client.doWithContext(ctx,
