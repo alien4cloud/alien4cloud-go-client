@@ -116,6 +116,140 @@ func Test_applicationService_CreateAppli(t *testing.T) {
 	}
 }
 
+func Test_applicationService_GetEnvironmentIDbyName(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/search`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/search`).Match([]byte(r.URL.Path)):
+			type envIDStruct struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			}
+			type envIDDataStruct struct {
+				Types []string      `json:"types"`
+				Data  []envIDStruct `json:"data"`
+			}
+			type envIDRespStruct struct {
+				Data envIDDataStruct `json:"data"`
+			}
+			res := &envIDRespStruct{
+				Data: envIDDataStruct{
+					Data: []envIDStruct{
+						{
+							Name: "myEnv",
+							ID:   "myEnvID",
+						},
+						{
+							Name: "my2ndEnv",
+							ID:   "my2ndEnvID",
+						},
+						{
+							Name: "myOtherEnv",
+							ID:   "myOtherEnvID",
+						},
+					},
+				},
+			}
+			b, err := json.Marshal(res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write(b)
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx     context.Context
+		appID   string
+		envName string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"GetEnvironmentIDbyNameOK", args{context.Background(), "myApp", "myEnv"}, false},
+		{"GetEnvironmentIDbyNameError", args{context.Background(), "error", ""}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			envID, err := a.GetEnvironmentIDbyName(tt.args.ctx, tt.args.appID, tt.args.envName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.GetEnvironmentIDbyName() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.Equal(t, envID, tt.args.envName+"ID")
+			}
+		})
+	}
+}
+
+func Test_applicationService_DeleteApplication(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx   context.Context
+		appID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteApplicationOK", args{context.Background(), "myApp"}, false},
+		{"DeleteApplicationError", args{context.Background(), "error"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			err := a.DeleteApplication(tt.args.ctx, tt.args.appID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.DeleteApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func Test_applicationService_IsApplicationExists(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {

@@ -31,8 +31,6 @@ import (
 )
 
 func Test_deploymentService_DeployApplication(t *testing.T) {
-	closeCh := make(chan struct{})
-	defer close(closeCh)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case regexp.MustCompile(`.*/topologies/TopologyID/locations.*`).Match([]byte(r.URL.Path)):
