@@ -14,7 +14,7 @@ jobs:
         tar xzf gotestsum.tgz
         rm -f gotestsum.tgz
     - name: Test
-      uses: docker://golang:1-stretch
+      uses: docker://golang:1
       with:
         args: /bin/bash -c "./gotestsum --jsonfile tests-reports.json  -- -count=1 -coverprofile coverage-sonar.out -coverpkg=./... $(go list ./... | grep -v '/examples/')"
       env:
