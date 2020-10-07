@@ -75,6 +75,7 @@ func Test_deploymentService_DeployApplication(t *testing.T) {
 			return
 		case regexp.MustCompile(`.*/applications/deployment`).Match([]byte(r.URL.Path)):
 			b, err := ioutil.ReadAll(r.Body)
+			defer r.Body.Close()
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return

@@ -27,6 +27,95 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func Test_applicationService_CreateAppli(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/catalog/topologies/search`).Match([]byte(r.URL.Path)):
+			b, err := ioutil.ReadAll(r.Body)
+			defer r.Body.Close()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			sr := new(SearchRequest)
+			err = json.Unmarshal(b, sr)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			if sr.Query == "notemplate" {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+
+			_, _ = w.Write([]byte(`{"data":{"data":[{"ID":"templateID"}],"totalResults":1}}`))
+			return
+		case regexp.MustCompile(`.*/applications`).Match([]byte(r.URL.Path)):
+			b, err := ioutil.ReadAll(r.Body)
+			defer r.Body.Close()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			acr := new(ApplicationCreateRequest)
+			err = json.Unmarshal(b, acr)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if acr.Name == "error" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"code": 400,"message":"bad"}}`))
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":"appID"}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx          context.Context
+		appID        string
+		templateName string
+	}
+	tests := []struct {
+		name          string
+		args          args
+		wantErr       bool
+		expectedAppID string
+	}{
+		{"CreateApp", args{context.Background(), "myApp", "templateName"}, false, "appID"},
+		{"CreateAppNoTemplateError", args{context.Background(), "myApp", "notemplate"}, true, ""},
+		{"CreateAppError", args{context.Background(), "error", "templateName"}, true, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			appID, err := a.CreateAppli(tt.args.ctx, tt.args.appID, tt.args.templateName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.CreateAppli() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.Equal(t, appID, tt.expectedAppID)
+		})
+	}
+}
+
 func Test_applicationService_IsApplicationExists(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
