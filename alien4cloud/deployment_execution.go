@@ -1,10 +1,10 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 
@@ -21,12 +21,10 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 	if query != "" {
 		u = fmt.Sprintf("%s&query=%s", u, url.QueryEscape(query))
 	}
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		u,
-		nil,
-		[]Header{acceptAppJSONHeader},
-	)
+		nil)
 
 	if err != nil {
 		return nil, FacetedSearchResult{}, errors.Wrapf(err, "Failed to get executions for deployment %q", deploymentID)
@@ -40,8 +38,12 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
-	return res.Data.Data, res.Data.FacetedSearchResult, errors.Wrapf(err, "Cannot convert the body response to request on executions for deployment %q", deploymentID)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return nil, res.Data.FacetedSearchResult, errors.Wrapf(err, "Cannot send request to get executions for deployment %q", deploymentID)
+	}
+	err = ReadA4CResponse(response, &res)
+	return res.Data.Data, res.Data.FacetedSearchResult, errors.Wrapf(err, "Cannot response on get executions for deployment %q", deploymentID)
 }
 
 func (d *deploymentService) CancelExecution(ctx context.Context, environmentID string, executionID string) error {
@@ -56,16 +58,19 @@ func (d *deploymentService) CancelExecution(ctx context.Context, environmentID s
 		return errors.Wrap(err, "Cannot marshal a cancelExecRequest structure")
 	}
 
-	_, err = d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/executions/cancel", a4CRestAPIPrefix),
-		[]byte(string(cancelExecBody)),
-		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
-	)
+		bytes.NewReader(cancelExecBody))
 
 	if err != nil {
 		return errors.Wrapf(err, "Failed to cancel execution for execution '%s' on environment '%s'", executionID, environmentID)
 	}
 
-	return nil
+	response, err := d.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to cancel execution for execution '%s' on environment '%s'", executionID, environmentID)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Failed to cancel execution for execution '%s' on environment '%s'", executionID, environmentID)
 }

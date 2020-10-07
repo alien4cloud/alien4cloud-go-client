@@ -69,7 +69,7 @@ func Test_deploymentService_UpdateApplication(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			if err := d.UpdateApplication(tt.args.ctx, tt.args.appID, tt.args.envID); (err != nil) != tt.wantErr {
@@ -81,7 +81,7 @@ func Test_deploymentService_UpdateApplication(t *testing.T) {
 	cancelableCtx, cancelFn := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancelFn()
 	d := &deploymentService{
-		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+		client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 	}
 
 	if err := d.UpdateApplication(cancelableCtx, "cancel", "envID"); err == nil {
@@ -138,7 +138,7 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			got, err := d.WaitUntilStateIs(tt.args.ctx, tt.args.appID, tt.args.envID, tt.args.statuses...)
 			if (err != nil) != tt.wantErr {
@@ -154,7 +154,7 @@ func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 	cancelableCtx, cancelFn := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancelFn()
 	d := &deploymentService{
-		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+		client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 	}
 
 	if _, err := d.WaitUntilStateIs(cancelableCtx, "cancel", "envID", ApplicationUpdated); err == nil {
@@ -212,7 +212,7 @@ func Test_deploymentService_GetDeploymentStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			got, err := d.GetDeploymentStatus(tt.args.ctx, tt.args.appID, tt.args.envID)
 			if (err != nil) != tt.wantErr {
@@ -228,7 +228,7 @@ func Test_deploymentService_GetDeploymentStatus(t *testing.T) {
 	cancelableCtx, cancelFn := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancelFn()
 	d := &deploymentService{
-		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+		client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 	}
 
 	if _, err := d.WaitUntilStateIs(cancelableCtx, "cancel", "envID", ApplicationUpdated); err == nil {
@@ -309,7 +309,7 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			got, err := d.RunWorkflow(tt.args.ctx, tt.args.a4cAppID, tt.args.a4cEnvID, tt.args.workflowName, tt.args.timeout)
 			if (err != nil) != tt.wantErr {
@@ -323,7 +323,7 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 	cancelableCtx, cancelFn := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancelFn()
 	d := &deploymentService{
-		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+		client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 	}
 
 	_, err := d.RunWorkflow(cancelableCtx, "cancel", "envID", "wf", 500*time.Millisecond)
@@ -396,7 +396,7 @@ func Test_deploymentService_UpdateDeploymentSetup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			err := d.UpdateDeploymentTopology(tt.args.ctx, tt.args.appID, tt.args.envID,
@@ -466,7 +466,7 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			f, err := ioutil.TempFile("", tt.name)

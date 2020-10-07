@@ -85,7 +85,7 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &deploymentService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			got, got1, err := d.GetExecutions(tt.args.ctx, tt.args.deploymentID, tt.args.query, tt.args.from, tt.args.size)
 			if (err != nil) != tt.wantErr {
@@ -100,7 +100,7 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 	ctx, cf := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cf()
 	d := &deploymentService{
-		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+		client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 	}
 	got, got1, err := d.GetExecutions(ctx, "internalerror", "", 0, 10)
 	assert.ErrorContains(t, err, "context deadline exceeded")

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -82,18 +81,15 @@ type DeploymentService interface {
 type ExecutionCallback func(*Execution, error)
 
 type deploymentService struct {
-	client             restClient
-	applicationService *applicationService
-	topologyService    *topologyService
+	client *a4cClient
 }
 
 // Get matching locations where a given application can be deployed
 func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID string, envID string) ([]LocationMatch, error) {
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/topologies/%s/locations?environmentId=%s", a4CRestAPIPrefix, topologyID, envID),
 		nil,
-		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -103,7 +99,12 @@ func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID
 	var res struct {
 		Data []LocationMatch `json:"data"`
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to get locations matching topology for application '%s' in '%s' environment",
+			topologyID, envID)
+	}
+	err = ReadA4CResponse(response, &res)
 	return res.Data, errors.Wrapf(err, "Cannot convert the body response to request on locations matching topology '%s' in '%s' environment",
 		topologyID, envID)
 }
@@ -113,7 +114,7 @@ func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID
 func (d *deploymentService) DeployApplication(ctx context.Context, appID string, envID string, location string) error {
 
 	// get locations matching this application
-	topologyID, err := d.topologyService.GetTopologyID(ctx, appID, envID)
+	topologyID, err := d.client.topologyService.GetTopologyID(ctx, appID, envID)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to get application topology for app %s and env %s",
 			appID, envID)
@@ -151,20 +152,25 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 	if err != nil {
 		return errors.Wrap(err, "Cannot marshal an a4cLocationPoliciesPostRequestIn structure")
 	}
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology/location-policies", a4CRestAPIPrefix, appID, envID),
-		[]byte(string(body)),
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(body),
 	)
 
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to set the location in order to deploy an application")
 	}
-	err = processA4CResponse(response, nil, http.StatusOK)
+	response, err := d.client.Do(request)
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to set the location in order to deploy an application")
 	}
+
+	err = ReadA4CResponse(response, nil)
+	if err != nil {
+		return errors.Wrap(err, "Unable to set the location in order to deploy an application")
+	}
+
 	// Deploy the application a4cApplicationDeployhRequestIn
 	appDeployBody, err := json.Marshal(
 		ApplicationDeployRequest{
@@ -176,51 +182,63 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 		return errors.Wrap(err, "Failed to marshal application deployment request")
 	}
 
-	response, err = d.client.doWithContext(ctx,
+	request, err = d.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/deployment", a4CRestAPIPrefix),
-		[]byte(string(appDeployBody)),
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(appDeployBody),
 	)
 
 	if err != nil {
 		return errors.Wrap(err, "Unable to send a request to deploy the application")
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err = d.client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "Unable to send a request to deploy the application")
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrap(err, "Unable to deploy the application")
 }
 
 // UpdateApplication updates an application with the latest topology version
 func (d *deploymentService) UpdateApplication(ctx context.Context, appID, envID string) error {
 
-	response, err := d.client.doWithContext(ctx, "POST",
+	request, err := d.client.NewRequest(ctx, "POST",
 		fmt.Sprintf("%s/applications/%s/environments/%s/update-deployment", a4CRestAPIPrefix, appID, envID),
-		[]byte("{}"),
-		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+		bytes.NewReader([]byte("{}")),
 	)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
 	}
 
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send a request to update application %s", appID)
+	}
+	err = ReadA4CResponse(response, err)
+	return errors.Wrapf(err, "Unable to update application %s", appID)
 }
 
 // UpdateDeploymentTopology updates inputs of a deployment topology
 func (d *deploymentService) UpdateDeploymentTopology(ctx context.Context, appID, envID string,
-	request UpdateDeploymentTopologyRequest) error {
+	upDepTopoRequest UpdateDeploymentTopologyRequest) error {
 
-	requestBody, _ := json.Marshal(request)
-	response, err := d.client.doWithContext(ctx, "PUT",
+	requestBody, _ := json.Marshal(upDepTopoRequest)
+	request, err := d.client.NewRequest(ctx, "PUT",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology", a4CRestAPIPrefix, appID, envID),
-		[]byte(string(requestBody)),
-		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+		bytes.NewReader(requestBody),
 	)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send a request to deployment topology for application %s", appID)
 	}
 
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send a request to update deployment topology for application %s", appID)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to update deployment topology for application %s", appID)
 }
 
 // Uploads an input artifact
@@ -234,6 +252,9 @@ func (d *deploymentService) UploadDeploymentInputArtifact(ctx context.Context,
 	}
 	defer f.Close()
 
+	// TODO(loicalbertin) we may have an issue on large files as it will load the whole file in memory.
+	// We should consider using io.Pipe() to create a synchronous in-memory pipe.
+	// The tricky part will be to make it work with an expected io.ReadSeeker.
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 	fName := filepath.Base(filePath)
@@ -251,28 +272,32 @@ func (d *deploymentService) UploadDeploymentInputArtifact(ctx context.Context,
 		return err
 	}
 
-	response, err := d.client.doWithContext(ctx, "POST",
+	request, err := d.client.NewRequest(ctx, "POST",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology/inputArtifacts/%s/upload",
 			a4CRestAPIPrefix, appID, envID, inputArtifact),
-		body.Bytes(),
-		[]Header{Header{"Content-Type", writer.FormDataContentType()}, acceptAppJSONHeader},
+		bytes.NewReader(body.Bytes()),
 	)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send a request to deployment topology for application %s", appID)
 	}
 
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send a request to deployment topology for application %s", appID)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to deployment topology for application %s", appID)
 }
 
 // GetDeploymentList returns the deployment list for the given appID and envID
 func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string, envID string) ([]Deployment, error) {
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/deployments/search?environmentId=%s&from=0&query=", a4CRestAPIPrefix, envID),
 		nil,
-		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -287,11 +312,15 @@ func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string,
 			TotalResults int `json:"totalResults"`
 		} `json:"data"`
 	}
-	err = processA4CResponse(response, &deploymentListResponse, http.StatusOK)
+	response, err := d.client.Do(request)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to get deployment list response for application %q environment %q", appID, envID)
 	}
 
+	err = ReadA4CResponse(response, &deploymentListResponse)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to get deployment list for application %q environment %q", appID, envID)
+	}
 	var deploymentList []Deployment
 
 	for _, dListData := range deploymentListResponse.Data.Data {
@@ -304,17 +333,21 @@ func (d *deploymentService) GetDeploymentList(ctx context.Context, appID string,
 // UndeployApplication Undeploy an application
 func (d *deploymentService) UndeployApplication(ctx context.Context, appID string, envID string) error {
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"DELETE",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment", a4CRestAPIPrefix, appID, envID),
 		nil,
-		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to undeploy A4C application")
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "Unable to send request to undeploy A4C application")
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrap(err, "Unable to undeploy A4C application")
 }
 
 // WaitUntilStateIs Waits until the state of an Alien4Cloud application is one of the given statuses as parameter and returns the actual status.
@@ -356,11 +389,10 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 		return ApplicationUndeployed, err
 	}
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/deployments/%s/status", a4CRestAPIPrefix, deploymentID),
 		nil,
-		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -371,7 +403,13 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 		Data string `json:"data"`
 	}
 
-	err = processA4CResponse(response, &statusResponse, http.StatusOK)
+	response, err := d.client.Do(request)
+
+	if err != nil {
+		return "", errors.Wrap(err, "Cannot send a request to get the deployment status")
+	}
+
+	err = ReadA4CResponse(response, &statusResponse)
 	return statusResponse.Data, errors.Wrapf(err, "Unable to get deployment status for application %q environment %q", applicationID, environmentID)
 
 }
@@ -380,11 +418,10 @@ func (d *deploymentService) GetDeploymentStatus(ctx context.Context, application
 // Returns an empty string if the application is undeployed
 func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicationID string, environmentID string) (string, error) {
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/active-deployment-monitored", a4CRestAPIPrefix, applicationID, environmentID),
 		nil,
-		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -399,7 +436,11 @@ func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicat
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return "", errors.Wrapf(err, "Unable to retrieve the current deployment ID for app '%s'", applicationID)
+	}
+	err = ReadA4CResponse(response, &res)
 	return res.Data.Deployment.ID, errors.Wrap(err, "Unable to unmarshal content of the get deployment monitored request")
 
 }
@@ -407,10 +448,9 @@ func (d *deploymentService) GetCurrentDeploymentID(ctx context.Context, applicat
 // GetNodeStatus returns the node status for the given applicationID and environmentID and nodeName
 func (d *deploymentService) GetNodeStatus(ctx context.Context, applicationID string, environmentID string, nodeName string) (string, error) {
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment/informations", a4CRestAPIPrefix, applicationID, environmentID),
-		nil,
 		nil,
 	)
 
@@ -419,9 +459,14 @@ func (d *deploymentService) GetNodeStatus(ctx context.Context, applicationID str
 	}
 
 	var nodeStatusResponse Informations
-	err = processA4CResponse(response, &nodeStatusResponse, http.StatusOK)
+	response, err := d.client.Do(request)
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to unmarshal node status for node '%s'", nodeName)
+	}
+
+	err = ReadA4CResponse(response, &nodeStatusResponse)
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to get status of node '%s'", nodeName)
 	}
 
 	if len(nodeStatusResponse.Data) == 0 {
@@ -434,17 +479,16 @@ func (d *deploymentService) GetNodeStatus(ctx context.Context, applicationID str
 		}
 	}
 
-	return "", fmt.Errorf("unable to get status of node '%s'", nodeName)
+	return "", errors.Errorf("unable to get status of node '%s'", nodeName)
 
 }
 
 // GetOutputAttributes return the output attributes of nodes in the given applicationID and environmentID
 func (d *deploymentService) GetOutputAttributes(ctx context.Context, applicationID string, environmentID string) (map[string][]string, error) {
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/runtime/%s/environment/%s/topology", a4CRestAPIPrefix, applicationID, environmentID),
-		nil,
 		nil,
 	)
 
@@ -452,7 +496,12 @@ func (d *deploymentService) GetOutputAttributes(ctx context.Context, application
 		return nil, errors.Wrap(err, "Cannot send a request to get output properties")
 	}
 	var outputPropertiesResponse RuntimeTopology
-	err = processA4CResponse(response, &outputPropertiesResponse, http.StatusOK)
+	response, err := d.client.Do(request)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot send a request to get output properties")
+	}
+	err = ReadA4CResponse(response, &outputPropertiesResponse)
 	return outputPropertiesResponse.Data.Topology.OutputAttributes, errors.Wrap(err, "Unable to get output properties")
 
 }
@@ -469,10 +518,9 @@ func (d *deploymentService) GetInstanceAttributesValue(ctx context.Context, appl
 
 func (d *deploymentService) getInstanceAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName, instanceName string, requestedAttributesName []string) (map[string]string, error) {
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment/informations", a4CRestAPIPrefix, applicationID, environmentID),
-		nil,
 		nil,
 	)
 
@@ -480,11 +528,14 @@ func (d *deploymentService) getInstanceAttributesValue(ctx context.Context, appl
 		return nil, errors.Wrap(err, "Cannot send a request to get attributes value")
 	}
 	var nodeStatusResponse Informations
-	err = processA4CResponse(response, &nodeStatusResponse, http.StatusOK)
+	response, err := d.client.Do(request)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to get attributes value")
 	}
-
+	err = ReadA4CResponse(response, &nodeStatusResponse)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to get attributes value")
+	}
 	if len(nodeStatusResponse.Data) == 0 {
 		return nil, nil
 	}
@@ -516,12 +567,11 @@ func (d *deploymentService) getInstanceAttributesValue(ctx context.Context, appl
 // Runs a workflow asynchronously, results will be notified using the ExecutionCallback function.
 // Cancelling the context cancels the function that monitor the execution
 func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error) {
-	response, err := d.client.doWithContext(
+	request, err := d.client.NewRequest(
 		ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/environments/%s/workflows/%s", a4CRestAPIPrefix, a4cAppID, a4cEnvID, workflowName),
 		nil,
-		[]Header{acceptAppJSONHeader},
 	)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
@@ -529,9 +579,13 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 	var res struct {
 		Data string `json:"data"`
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := d.client.Do(request)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read response on running workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
 	}
 
 	if res.Data == "" {
@@ -602,11 +656,10 @@ func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applic
 		return nil, errors.Wrap(err, "Unable to get current deployment ID")
 	}
 
-	response, err := d.client.doWithContext(ctx,
+	request, err := d.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/workflow_execution/%s", a4CRestAPIPrefix, deploymentID),
 		nil,
-		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
@@ -617,7 +670,11 @@ func (d *deploymentService) GetLastWorkflowExecution(ctx context.Context, applic
 		Data WorkflowExecution `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := d.client.Do(request)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to get content of the execution status response")
+	}
+	err = ReadA4CResponse(response, &res)
 	return &res.Data, errors.Wrap(err, "Unable to get content of the execution status response")
 
 }

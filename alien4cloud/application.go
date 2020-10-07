@@ -15,6 +15,7 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -46,15 +47,14 @@ type ApplicationService interface {
 }
 
 type applicationService struct {
-	client          restClient
-	topologyService *topologyService
+	client *a4cClient
 }
 
 // CreateAppli Create an application from a template and return its ID
 func (a *applicationService) CreateAppli(ctx context.Context, appName string, appTemplate string) (string, error) {
 
 	var appID string
-	topologyTemplateID, err := a.topologyService.GetTopologyTemplateIDByName(ctx, appTemplate)
+	topologyTemplateID, err := a.client.topologyService.GetTopologyTemplateIDByName(ctx, appTemplate)
 	if err != nil {
 		return appID, errors.Wrapf(err, "Unable to get the topology template id of template '%s'", appTemplate)
 	}
@@ -71,22 +71,23 @@ func (a *applicationService) CreateAppli(ctx context.Context, appName string, ap
 		return appID, errors.Wrap(err, "Cannot marshal an a4cAppliCreateRequestIn structure")
 	}
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications", a4CRestAPIPrefix),
-		[]byte(string(appliCreateJSON)),
-		[]Header{contentTypeAppJSONHeader},
-	)
-
+		bytes.NewReader(appliCreateJSON))
 	if err != nil {
-		return appID, errors.Wrap(err, "Cannot send a request to create an application")
+		return appID, errors.Wrap(err, "Cannot create a request to create an application")
 	}
 
 	var appStruct struct {
 		Data string `json:"data"`
 	}
-	err = processA4CResponse(response, &appStruct, http.StatusCreated)
-	return appStruct.Data, errors.Wrap(err, "Cannot unmarshal the reponse of the application creation")
+	response, err := a.client.Do(request)
+	if err != nil {
+		return appID, errors.Wrap(err, "Cannot send a request to create an application")
+	}
+	err = ReadA4CResponse(response, &appStruct)
+	return appStruct.Data, errors.Wrap(err, "Cannot create an application")
 }
 
 // GetEnvironmentIDbyName Return the Alien4Cloud environment ID from a given application ID and environment name
@@ -102,15 +103,13 @@ func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID s
 		return "", errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/environments/search", a4CRestAPIPrefix, appID),
-		[]byte(string(envsSearchBody)),
-		[]Header{contentTypeAppJSONHeader},
-	)
+		bytes.NewReader(envsSearchBody))
 
 	if err != nil {
-		return "", errors.Wrap(err, "Unable to send request to get environment ID from its name of an application")
+		return "", errors.Wrap(err, "Unable to create request to get environment ID from its name of an application")
 	}
 
 	var res struct {
@@ -122,9 +121,13 @@ func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID s
 			} `json:"data"`
 		} `json:"data"`
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := a.client.Do(request)
 	if err != nil {
-		return "", errors.Wrapf(err, "Cannot convert the body of the search for '%s' environment", envName)
+		return "", errors.Wrapf(err, "Unable to create request to get environment ID named '%s' for application '%s'", envName, appID)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return "", errors.Wrapf(err, "Unable to get environment ID for environment named '%s' in application '%s'", envName, appID)
 	}
 
 	var envID string
@@ -144,26 +147,28 @@ func (a *applicationService) GetEnvironmentIDbyName(ctx context.Context, appID s
 // IsApplicationExist Return true if the application with the given ID exists
 func (a *applicationService) IsApplicationExist(ctx context.Context, applicationID string) (bool, error) {
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, applicationID),
-		nil,
-		nil,
-	)
+		nil)
 
 	if err != nil {
-		return false, errors.Wrap(err, "Cannot send a request to ensure an application exists")
+		return false, errors.Wrap(err, "Cannot create a request to ensure an application exists")
 	}
-	switch response.StatusCode {
 
+	response, err := a.client.Do(request)
+	if err != nil {
+		return false, errors.Wrap(err, "Can't check if an application exists")
+	}
+
+	switch response.StatusCode {
 	case http.StatusNotFound:
-		// to fully read response
-		_ = processA4CResponse(response, nil, http.StatusNotFound)
+		discardHTTPResponseBody(response)
 		return false, nil
 
 	default:
-		err = processA4CResponse(response, nil, http.StatusOK)
-		return err == nil, err
+		err = ReadA4CResponse(response, nil)
+		return err == nil, errors.Wrap(err, "Can't check if an application exists")
 	}
 }
 
@@ -182,43 +187,43 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 		return nil, errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/search", a4CRestAPIPrefix),
-		[]byte(string(appsSearchBody)),
-		[]Header{contentTypeAppJSONHeader},
-	)
+		bytes.NewReader(appsSearchBody))
 
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to create request to search A4C application")
+	}
+
+	var res struct {
+		Data struct {
+			Types []string `json:"types"`
+			Data  []struct {
+				ID          string `json:"id"`
+				ArchiveName string `json:"name"`
+			} `json:"data"`
+			TotalResults int `json:"totalResults"`
+		} `json:"data"`
+		Error Error `json:"error"`
+	}
+
+	response, err := a.client.Do(request)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to send request to search A4C application")
 	}
-	defer response.Body.Close()
-
 	switch response.StatusCode {
 
 	case http.StatusNotFound:
+		discardHTTPResponseBody(response)
 		// No application with this filter have been found
-		// to fully read response
-		_ = processA4CResponse(response, nil, http.StatusNotFound)
 		return nil, nil
 
 	default:
-		var res struct {
-			Data struct {
-				Types []string `json:"types"`
-				Data  []struct {
-					ID          string `json:"id"`
-					ArchiveName string `json:"name"`
-				} `json:"data"`
-				TotalResults int `json:"totalResults"`
-			} `json:"data"`
-			Error Error `json:"error"`
-		}
-		err = processA4CResponse(response, &res, http.StatusOK)
+		err = ReadA4CResponse(response, &res)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Can't get applications IDs")
 		}
-
 		if res.Data.TotalResults <= 0 {
 			// No result have been returned
 			return nil, nil
@@ -238,12 +243,10 @@ func (a *applicationService) GetApplicationsID(ctx context.Context, filter strin
 // GetApplicationByID returns the application with the given ID
 func (a *applicationService) GetApplicationByID(ctx context.Context, id string) (*Application, error) {
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, id),
-		nil,
-		[]Header{contentTypeAppJSONHeader},
-	)
+		nil)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot get application with ID '%s'", id)
@@ -255,29 +258,34 @@ func (a *applicationService) GetApplicationByID(ctx context.Context, id string) 
 		Error Error       `json:"error,omitempty"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	resp, err := a.client.Do(request)
 	if err != nil {
 		return nil, err
 	}
-
-	return &res.Data, err
+	err = ReadA4CResponse(resp, &res)
+	return &res.Data, errors.Wrapf(err, "Can't get application by ID: %q", id)
 
 }
 
 // DeleteApplication delete an application
 func (a *applicationService) DeleteApplication(ctx context.Context, appID string) error {
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"DELETE",
 		fmt.Sprintf("%s/applications/%s", a4CRestAPIPrefix, appID),
-		nil,
-		[]Header{contentTypeAppJSONHeader},
-	)
+		nil)
 
 	if err != nil {
-		return errors.Wrap(err, "Unable to send request to delete A4C application")
+		return errors.Wrap(err, "Unable to create request to delete A4C application")
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := a.client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "Unable to create request to delete A4C application")
+	}
+
+	err = ReadA4CResponse(response, nil)
+
+	return errors.Wrapf(err, "Unable to delete A4C application with ID: %q", appID)
 }
 
 // SetTagToApplication set tag tagKey/tagValue to application
@@ -297,17 +305,20 @@ func (a *applicationService) SetTagToApplication(ctx context.Context, applicatio
 		return errors.Wrap(err, "Unable to marshal struct to set a tag")
 	}
 
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/tags", a4CRestAPIPrefix, applicationID),
-		[]byte(string(tag)),
-		[]Header{contentTypeAppJSONHeader},
-	)
-
+		bytes.NewReader(tag))
 	if err != nil {
-		return errors.Wrap(err, "Unable to send request to set a tag to an application")
+		return errors.Wrap(err, "Unable to create request to set a tag to an application")
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+
+	response, err := a.client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "Unable to create request to set a tag to an application")
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to set tags to an application")
 }
 
 // GetApplicationTag returns the tag value for the given application ID and tag key
@@ -334,23 +345,20 @@ func (a *applicationService) GetApplicationTag(ctx context.Context, applicationI
 }
 
 func (a *applicationService) GetDeploymentTopology(ctx context.Context, appID string, envID string) (*Topology, error) {
-
-	response, err := a.client.doWithContext(ctx,
+	request, err := a.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/deployment-topology", a4CRestAPIPrefix, appID, envID),
-		nil,
-		[]Header{contentTypeAppJSONHeader},
-	)
+		nil)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot get the deployment topology content for application '%s' on environemnt '%s'", appID, envID)
+		return nil, errors.Wrapf(err, "Cannot get the deployment topology content for application '%s' on environment '%s'", appID, envID)
 	}
 
 	res := new(Topology)
-	err = processA4CResponse(response, res, http.StatusOK)
+	resp, err := a.client.Do(request)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot convert the body of deployment topology get data for application '%s', on environment '%s'", appID, envID)
+		return res, errors.Wrapf(err, "Cannot get the deployment topology content for application '%s' on environment '%s'", appID, envID)
 	}
 
-	return res, nil
+	return res, errors.Wrapf(ReadA4CResponse(resp, res), "Cannot get the deployment topology content for application '%s' on environment '%s'", appID, envID)
 }

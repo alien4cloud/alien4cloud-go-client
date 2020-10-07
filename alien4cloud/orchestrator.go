@@ -15,10 +15,10 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/pkg/errors"
 )
@@ -32,21 +32,20 @@ type OrchestratorService interface {
 }
 
 type orchestratorService struct {
-	client restClient
+	client *a4cClient
 }
 
 // GetOrchestratorLocations returns the Alien4Cloud locations for orchestratorID
 func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orchestratorID string) ([]Location, error) {
 	// Get orchestrator location
-	response, err := o.client.doWithContext(ctx,
+	request, err := o.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/orchestrators/%s/locations", a4CRestAPIPrefix, orchestratorID),
 		nil,
-		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to send request to get orchestrator location for orchestrator '%s'", orchestratorID)
+		return nil, errors.Wrapf(err, "Unable to create request to get orchestrator location for orchestrator '%s'", orchestratorID)
 	}
 
 	var loc Location
@@ -60,9 +59,13 @@ func (o *orchestratorService) GetOrchestratorLocations(ctx context.Context, orch
 			} `json:"location"`
 		} `json:"data"`
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := o.client.Do(request)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot convert the body of the get '%s' orchestrator location", orchestratorID)
+		return nil, errors.Wrapf(err, "Unable to send request to get orchestrator location for orchestrator '%s'", orchestratorID)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to get orchestrator location for orchestrator '%s'", orchestratorID)
 	}
 
 	for _, orchestrator := range res.Data {
@@ -84,15 +87,14 @@ func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orche
 		return "", errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
-	response, err := o.client.doWithContext(ctx,
+	request, err := o.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/orchestrators", a4CRestAPIPrefix),
-		[]byte(string(orchestratorsSearchBody)),
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(orchestratorsSearchBody),
 	)
 
 	if err != nil {
-		return "", errors.Wrap(err, "Unable to send request to get orchestrator ID from its name")
+		return "", errors.Wrapf(err, "Unable to send request to get orchestrator ID from its name '%s'", orchestratorName)
 	}
 
 	var res struct {
@@ -105,9 +107,13 @@ func (o *orchestratorService) GetOrchestratorIDbyName(ctx context.Context, orche
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := o.client.Do(request)
 	if err != nil {
-		return "", errors.Wrapf(err, "Cannot convert the body of the search for '%s' orchestrator", orchestratorName)
+		return "", errors.Wrapf(err, "Unable to send request to get orchestrator ID from its name '%s'", orchestratorName)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return "", errors.Wrapf(err, "Unable to get orchestrator ID from its name '%s'", orchestratorName)
 	}
 	if res.Data.TotalResults <= 0 {
 		return "", errors.Errorf("'%s' orchestrator name does not exist", orchestratorName)

@@ -80,7 +80,7 @@ func Test_userService_TestCreateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.CreateUser(tt.args.ctx, tt.args.createRequest); (err != nil) != tt.wantErr {
 				t.Errorf("userService.CreateUser() error = %v, wantErr %v", err, tt.wantErr)
@@ -132,7 +132,7 @@ func Test_userService_TestUpdateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.UpdateUser(tt.args.ctx, tt.args.username, tt.args.updateRequest); (err != nil) != tt.wantErr {
 				t.Errorf("userService.UpdateUser() error = %v, wantErr %v", err, tt.wantErr)
@@ -182,7 +182,7 @@ func Test_userService_TestGetUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			userResp, err := uServ.GetUser(tt.args.ctx, tt.args.username)
 			if (err != nil) != tt.wantErr {
@@ -255,7 +255,7 @@ func Test_userService_TestGetUsers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			userResp, err := uServ.GetUsers(tt.args.ctx, tt.args.usernames)
 			if (err != nil) != tt.wantErr {
@@ -333,7 +333,7 @@ func Test_userService_TestSearchUsers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			userResp, totalNb, err := uServ.SearchUsers(tt.args.ctx, tt.args.searchRequest)
 			if err != nil {
@@ -374,7 +374,7 @@ func Test_userService_TestDeleteUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.DeleteUser(tt.args.ctx, tt.args.userName); (err != nil) != tt.wantErr {
 				t.Errorf("userService.DeleteUser() error = %v, wantErr %v", err, tt.wantErr)
@@ -424,7 +424,7 @@ func Test_userService_TestAddRemoveRole(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.AddRole(tt.args.ctx, tt.args.username, tt.args.rolename); (err != nil) != tt.wantErr {
 				t.Errorf("userService.AddRole() error = %v, wantErr %v", err, tt.wantErr)
@@ -493,7 +493,7 @@ func Test_userService_TestCreateGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			var groupID string
 			var err error
@@ -549,7 +549,7 @@ func Test_userService_TestUpdateGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.UpdateGroup(tt.args.ctx, tt.args.username, tt.args.updateRequest); (err != nil) != tt.wantErr {
 				t.Errorf("userService.UpdateGroup() error = %v, wantErr %v", err, tt.wantErr)
@@ -598,7 +598,7 @@ func Test_userService_TestGetGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			groupResp, err := uServ.GetGroup(tt.args.ctx, tt.args.groupID)
 			if (err != nil) != tt.wantErr {
@@ -671,7 +671,7 @@ func Test_userService_TestGetGroups(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			groupResp, err := uServ.GetGroups(tt.args.ctx, tt.args.groupIDs)
 			if (err != nil) != tt.wantErr {
@@ -749,7 +749,7 @@ func Test_userService_TestSearchGroups(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			groupResp, totalNb, err := uServ.SearchGroups(tt.args.ctx, tt.args.searchRequest)
 			if err != nil {
@@ -790,7 +790,7 @@ func Test_userService_TestDeleteGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uServ := &userService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := uServ.DeleteGroup(tt.args.ctx, tt.args.groupID); (err != nil) != tt.wantErr {
 				t.Errorf("userService.DeleteGroup() error = %v, wantErr %v", err, tt.wantErr)

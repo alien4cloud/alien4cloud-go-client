@@ -15,10 +15,10 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 
@@ -64,7 +64,7 @@ type TopologyService interface {
 }
 
 type topologyService struct {
-	client restClient
+	client *a4cClient
 }
 
 const (
@@ -75,22 +75,25 @@ const (
 // GetTopologyID returns the A4C topology ID on a given application and environment
 func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID string) (string, error) {
 
-	response, err := t.client.doWithContext(ctx,
+	request, err := t.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/applications/%s/environments/%s/topology", a4CRestAPIPrefix, appID, envID),
 		nil,
-		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
-		return "", errors.Wrapf(err, "Cannot send a request in order to find the topology for application '%s' in '%s' environment", appID, envID)
+		return "", errors.Wrapf(err, "Cannot create a request in order to find the topology for application '%s' in '%s' environment", appID, envID)
 	}
 
 	var res struct {
 		Data string `json:"data"`
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
-	return res.Data, errors.Wrapf(err, "Cannot read a4c response of the topology get data for application '%s' in '%s' environment", appID, envID)
+	response, err := t.client.Do(request)
+	if err != nil {
+		return "", errors.Wrapf(err, "Cannot send a request in order to find the topology for application '%s' in '%s' environment", appID, envID)
+	}
+	err = ReadA4CResponse(response, &res)
+	return res.Data, errors.Wrapf(err, "Cannot find the topology for application '%s' in '%s' environment", appID, envID)
 }
 
 // GetTopologyTemplateIDByName return the topology template ID for the given topologyName
@@ -101,14 +104,13 @@ func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topol
 		return "", errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
 
-	response, err := t.client.doWithContext(ctx,
+	request, err := t.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/catalog/topologies/search", a4CRestAPIPrefix),
-		[]byte(string(toposSearchBody)),
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(toposSearchBody),
 	)
 	if err != nil {
-		return "", errors.Wrap(err, "Cannot send a request to get the topology id")
+		return "", errors.Wrapf(err, "Cannot create request to get topology id for topology named %q", topologyName)
 	}
 
 	var res struct {
@@ -121,11 +123,14 @@ func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topol
 			TotalResults int `json:"totalResults"`
 		} `json:"data"`
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := t.client.Do(request)
 	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read response when getting topology id for topology named %q", topologyName)
+		return "", errors.Wrapf(err, "Cannot send request to get topology id for topology named %q", topologyName)
 	}
-
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return "", errors.Wrapf(err, "Cannot get topology id for topology named %q", topologyName)
+	}
 	if res.Data.TotalResults <= 0 {
 		return "", errors.Errorf("%q topology template does not exist", topologyName)
 	}
@@ -154,15 +159,14 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 		return errors.Wrap(err, "Cannot marshal an a4cTopoEditorExecuteRequestIn structure")
 	}
 
-	response, err := t.client.doWithContext(ctx,
+	request, err := t.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/editor/%s/execute", a4CRestAPIPrefix, a4cCtx.TopologyID),
-		[]byte(string(topoEditorExecuteBody)),
-		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
+		bytes.NewReader(topoEditorExecuteBody),
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "Unable to send the request edit an A4C topology")
+		return errors.Wrap(err, "Unable to create the request edit an A4C topology")
 	}
 
 	var resExec struct {
@@ -174,9 +178,13 @@ func (t *topologyService) editTopology(ctx context.Context, a4cCtx *TopologyEdit
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &resExec, http.StatusOK)
+	response, err := t.client.Do(request)
 	if err != nil {
-		return errors.Wrap(err, "Unable to unmarshal a topology edition response")
+		return errors.Wrap(err, "Unable to send the request edit an A4C topology")
+	}
+	err = ReadA4CResponse(response, &resExec)
+	if err != nil {
+		return errors.Wrap(err, "Unable to edit an A4C topology")
 	}
 
 	lastOperationIndex := resExec.Data.LastOperationIndex
@@ -495,21 +503,25 @@ func (t *topologyService) SaveA4CTopology(ctx context.Context, a4cCtx *TopologyE
 		}
 	}
 
-	response, err := t.client.doWithContext(ctx,
+	request, err := t.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/editor/%s?lastOperationId=%s", a4CRestAPIPrefix, a4cCtx.TopologyID, a4cCtx.PreviousOperationID),
 		nil,
-		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
 	)
 
 	if err != nil {
-		return errors.Wrap(err, "Unable to send the request to save an A4C topology")
+		return errors.Wrap(err, "Unable to create the request to save an A4C topology")
 	}
 
 	// After saving topology, get come back to a clear state.
 	a4cCtx.PreviousOperationID = ""
 
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := t.client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "Unable to send request to save an A4C topology")
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrap(err, "Unable to save an A4C topology")
 }
 
 func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]BasicTopologyInfo, error) {
@@ -526,15 +538,13 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 		return nil, errors.Wrap(err, "Cannot marshal an a4cgetTopologiesCreateRequest structure")
 	}
 
-	response, err := t.client.doWithContext(ctx,
+	request, err := t.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/catalog/topologies/search", a4CRestAPIPrefix),
-		[]byte(string(getTopoJSON)),
-		[]Header{contentTypeAppJSONHeader, acceptAppJSONHeader},
-	)
+		bytes.NewReader(getTopoJSON))
 
 	if err != nil {
-		return nil, errors.Wrap(err, "Cannot send request to list topologies")
+		return nil, errors.Wrapf(err, "Cannot create request to get topologies with query %q", query)
 	}
 
 	var res struct {
@@ -548,9 +558,13 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := t.client.Do(request)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read response when getting topologies with query %q", query)
+		return nil, errors.Wrapf(err, "Cannot send request to get topologies with query %q", query)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot get topologies with query %q", query)
 	}
 	var topologyInfo []BasicTopologyInfo
 
@@ -564,11 +578,10 @@ func (t *topologyService) GetTopologies(ctx context.Context, query string) ([]Ba
 
 func (t *topologyService) GetTopologyByID(ctx context.Context, a4cTopologyID string) (*Topology, error) {
 
-	response, err := t.client.doWithContext(ctx,
+	request, err := t.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf("%s/topologies/%s", a4CRestAPIPrefix, a4cTopologyID),
 		nil,
-		[]Header{contentTypeAppJSONHeader},
 	)
 
 	if err != nil {
@@ -576,10 +589,11 @@ func (t *topologyService) GetTopologyByID(ctx context.Context, a4cTopologyID str
 	}
 
 	res := new(Topology)
-	err = processA4CResponse(response, res, http.StatusOK)
+	response, err := t.client.Do(request)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot convert the body of topology get data for topologyID '%s'", a4cTopologyID)
+		return nil, errors.Wrapf(err, "Cannot get the topology content for topologyID '%s'", a4cTopologyID)
 	}
+	err = ReadA4CResponse(response, res)
 
-	return res, nil
+	return res, errors.Wrapf(err, "Cannot get the topology content for topologyID '%s'", a4cTopologyID)
 }

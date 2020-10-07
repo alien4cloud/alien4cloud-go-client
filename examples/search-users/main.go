@@ -69,7 +69,7 @@ func main() {
 	}
 
 	for _, user := range users {
-		fmt.Printf("User %s, roles: %v\n", user.Username, user.Roles)
+		fmt.Printf("User %s, roles: %v\n", user.UserName, user.Roles)
 	}
 	fmt.Printf("Total number of users: %d\n", totalNumber)
 }

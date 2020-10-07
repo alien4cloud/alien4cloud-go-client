@@ -46,7 +46,7 @@ func Test_topologyService_GetTopology(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			topoService := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			_, err := topoService.GetTopology(tt.args.ctx, tt.args.appID, tt.args.envID)
@@ -63,7 +63,7 @@ func Test_topologyService_GetTopologies(t *testing.T) {
 	defer ts.Close()
 
 	topoService := &topologyService{
-		client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+		client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 	}
 	allTopo, err := topoService.GetTopologies(context.Background(), "")
 	if err != nil {

@@ -17,7 +17,6 @@ package alien4cloud
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 
@@ -33,7 +32,7 @@ type EventService interface {
 }
 
 type eventService struct {
-	client restClient
+	client *a4cClient
 }
 
 // GetEventsForApplicationEnvironment returns the events for the application environment
@@ -54,20 +53,21 @@ func (e *eventService) GetEventsForApplicationEnvironment(ctx context.Context, e
 	// Then we send the resquest to get the events returned for this deployment.
 	evURL := fmt.Sprintf("%s/deployments/%s/events?from=%s&size=%s", a4CRestAPIPrefix, environmentID,
 		url.QueryEscape(strconv.Itoa(fromIndex)), url.QueryEscape(strconv.Itoa(size)))
-	response, err := e.client.doWithContext(ctx,
+
+	request, err := e.client.NewRequest(ctx,
 		"GET",
 		evURL,
 		nil,
-		[]Header{acceptAppJSONHeader},
 	)
 
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot send a request to get events from application environment '%s'", environmentID)
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "Unable to unmarshal events from response")
-	}
 
-	return res.Data.Data, res.Data.TotalResults, nil
+	response, err := e.client.Do(request)
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "Cannot send a request to get events from application environment '%s'", environmentID)
+	}
+	err = ReadA4CResponse(response, &res)
+	return res.Data.Data, res.Data.TotalResults, errors.Wrapf(err, "Cannot get events from application environment '%s'", environmentID)
 }

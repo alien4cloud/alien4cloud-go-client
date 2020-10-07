@@ -15,11 +15,11 @@
 package alien4cloud
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -45,7 +45,57 @@ type Client interface {
 	TopologyService() TopologyService
 	CatalogService() CatalogService
 	UserService() UserService
+
+	// NewRequest allows to create a custom request to be send to Alien4Cloud
+	// given a Context, method, url path and optional body.
+	//
+	// If the provided body is also an io.Closer, the Client Do function will automatically
+	// close it.
+	// The body need to be a ReadSeeker in order to rewind request on retries.
+	//
+	// NewRequestWithContext returns a Request suitable for use with Client.Do
+	//
+	// If body is of type *bytes.Reader or *strings.Reader, the returned
+	// request's ContentLength is set to its
+	// exact value (instead of -1)
+	NewRequest(ctx context.Context, method, urlStr string, body io.ReadSeeker) (*http.Request, error)
+
+	// Do sends an HTTP request and returns an HTTP response
+	//
+	// If the returned error is nil, the Response will contain a non-nil
+	// Body which the user is expected to close. If the Body is not both
+	// read to EOF and closed, the Client's underlying RoundTripper
+	// (typically Transport) may not be able to re-use a persistent TCP
+	// connection to the server for a subsequent "keep-alive" request.
+	// ReadA4CResponse() helper function is typically used to do this.
+	//
+	// The request Body, if non-nil, will be closed by the Do function
+	// even on errors.
+	//
+	// Optional Retry functions may be provided. Those functions are executed sequentially to determine
+	// if and how a request should be retried. See Retry documentation for more details.
+	// Note: a special Retry function is always added at the end of the retries list. It will
+	// automatically retry 403 Forbidden errors by trying to call Client.Login first.
+	// This is for backward compatibility.
+	Do(req *http.Request, retries ...Retry) (*http.Response, error)
 }
+
+// Retry is a function called after sending a request.
+// It allows to perform actions based on the given response before re-sending a request.
+// A typical usecase is to automatically call the Client.Login() function when receiving a 403 Forbidden response.
+//
+// It is possible to alter the request to be send by returning an updated request. But in most cases
+// the given original request can safely be returned as it. This framework take care of rewinding the request body
+// before giving it to retry functions.
+//
+// The retry algorithm is:
+// - If a retry function returns an error the retry process is stopped and this error is returned
+// - If a retry function returns a nil request the retry process continue and consider the next available retry function
+// - If a retry function returns a non-nil request this request is used in a Client.Do() call
+//
+// Note: It is critical that if the response body is read in a retry function it should not be closed
+// and somehow rewind to the begining.
+type Retry func(client Client, request *http.Request, response *http.Response) (*http.Request, error)
 
 const (
 	// DefaultEnvironmentName is the default name of the environment created by
@@ -117,16 +167,13 @@ const (
 	a4CRestAPIPrefix string = "/rest/latest"
 )
 
-type restClient struct {
-	*http.Client
+// a4Client holds properties of an a4c client
+type a4cClient struct {
+	client   *http.Client
 	baseURL  string
 	username string
 	password string
-}
 
-// a4Client holds properties of an a4c client
-type a4cClient struct {
-	client              restClient
 	applicationService  *applicationService
 	deploymentService   *deploymentService
 	eventService        *eventService
@@ -194,43 +241,54 @@ func NewClient(address string, user string, password string, caFile string, skip
 		TLSClientConfig:     tlsConfig,
 	}
 
-	restClient := restClient{
-		Client: &http.Client{
+	c := &a4cClient{
+		client: &http.Client{
 			Transport:     tr,
 			CheckRedirect: nil,
 			Jar:           newJar(),
 			Timeout:       0},
+
 		baseURL:  a4cAPI,
 		username: user,
 		password: password,
 	}
-	topoService := topologyService{restClient}
-	eventService := eventService{restClient}
-	catService := catalogService{restClient}
-	appService := applicationService{restClient, &topoService}
-	deployService := deploymentService{restClient, &appService, &topoService}
-	userService := userService{restClient}
-	return &a4cClient{
-		client:              restClient,
-		applicationService:  &appService,
-		deploymentService:   &deployService,
-		eventService:        &eventService,
-		logService:          &logService{restClient, &deployService},
-		orchestratorService: &orchestratorService{restClient},
-		topologyService:     &topoService,
-		catalogService:      &catService,
-		userService:         &userService,
-	}, nil
+
+	c.applicationService = &applicationService{c}
+	c.deploymentService = &deploymentService{c}
+	c.eventService = &eventService{c}
+	c.logService = &logService{c}
+	c.orchestratorService = &orchestratorService{c}
+	c.topologyService = &topologyService{c}
+	c.catalogService = &catalogService{c}
+	c.userService = &userService{c}
+	return c, nil
 }
 
 // Login login to alien4cloud
 func (c *a4cClient) Login(ctx context.Context) error {
-	return c.client.login(ctx)
+	values := url.Values{}
+	values.Set("username", c.username)
+	values.Set("password", c.password)
+	values.Set("submit", "Login")
+	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/login", c.baseURL),
+		strings.NewReader(values.Encode()))
+	if err != nil {
+		return err
+	}
+	// Replace default content-type
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	response, err := c.client.Do(request)
+
+	if err != nil {
+		return err
+	}
+	return ReadA4CResponse(response, nil)
 }
 
 // Logout log out from alien4cloud
 func (c *a4cClient) Logout(ctx context.Context) error {
-	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/logout", c.client.baseURL), nil)
+	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/logout", c.baseURL), nil)
 	if err != nil {
 		return err
 	}
@@ -239,12 +297,12 @@ func (c *a4cClient) Logout(ctx context.Context) error {
 
 	request.Close = true
 
-	response, err := c.client.Client.Do(request)
+	response, err := c.client.Do(request)
 
 	if err != nil {
 		return err
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	return ReadA4CResponse(response, nil)
 }
 
 // ApplicationService retrieves the Application Service
@@ -285,76 +343,4 @@ func (c *a4cClient) CatalogService() CatalogService {
 // UserService retrieves the User Service
 func (c *a4cClient) UserService() UserService {
 	return c.userService
-}
-
-// do requests the alien4cloud rest api with a Context that can be canceled
-func (r *restClient) doWithContext(ctx context.Context, method string, path string, body []byte, headers []Header) (*http.Response, error) {
-
-	bodyBytes := bytes.NewBuffer(body)
-
-	request, err := http.NewRequestWithContext(ctx, method, r.baseURL+path, bodyBytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Add header
-	for _, header := range headers {
-		request.Header.Add(header.Key, header.Value)
-	}
-
-	response, err := r.Client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-
-	// Cookie can potentially be expired. If we are unauthorized to send a request, we should try to login again.
-	if response.StatusCode == http.StatusForbidden {
-		err = r.login(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		bodyBytes = bytes.NewBuffer(body)
-
-		request, err := http.NewRequest(method, r.baseURL+path, bodyBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, header := range headers {
-			request.Header.Add(header.Key, header.Value)
-		}
-
-		response, err := r.Client.Do(request)
-		if err != nil {
-			return nil, err
-		}
-
-		return response, nil
-	}
-
-	return response, nil
-}
-
-// login to alien4cloud
-func (r *restClient) login(ctx context.Context) error {
-	values := url.Values{}
-	values.Set("username", r.username)
-	values.Set("password", r.password)
-	values.Set("submit", "Login")
-	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/login", r.baseURL),
-		strings.NewReader(values.Encode()))
-	if err != nil {
-		return err
-	}
-	request.Header.Add("Accept", "application/json")
-	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	response, err := r.Client.Do(request)
-
-	if err != nil {
-		return err
-	}
-	return processA4CResponse(response, nil, http.StatusOK)
 }

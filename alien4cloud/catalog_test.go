@@ -93,7 +93,7 @@ func Test_catalogService_UploadCSAR(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cs := &catalogService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			got, err := cs.UploadCSAR(tt.args.ctx, tt.args.csar, tt.args.workspace)
 			if (err != nil) != tt.wantErr {

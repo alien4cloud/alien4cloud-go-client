@@ -15,10 +15,10 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/pkg/errors"
 )
@@ -60,7 +60,7 @@ type UserService interface {
 }
 
 type userService struct {
-	client restClient
+	client *a4cClient
 }
 
 const (
@@ -76,17 +76,22 @@ func (u *userService) CreateUser(ctx context.Context, createRequest CreateUpdate
 		return errors.Wrap(err, "Unable to marshal create request")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/users", a4CRestAPIPrefix),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
 		return errors.Wrap(err, "Unable to send request to create a user")
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrap(err, "Unable to send request to create a user")
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrap(err, "Unable to create a user")
 }
 
 // UpdateUser updates a user parameters
@@ -97,17 +102,21 @@ func (u *userService) UpdateUser(ctx context.Context, userName string, updateReq
 		return errors.Wrap(err, "Unable to marshal update request")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"PUT",
 		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send request to update user %s", userName)
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send request to update user %s", userName)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to update user %s", userName)
 }
 
 // GetUser returns the parameters of a user whose name is provided in argument
@@ -117,22 +126,21 @@ func (u *userService) GetUser(ctx context.Context, userName string) (User, error
 		Error Error `json:"error,omitempty"`
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
-		nil,
 		nil)
 
 	if err != nil {
 		return res.Data, errors.Wrapf(err, "Unable to send request to get user %s", userName)
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return res.Data, err
+		return res.Data, errors.Wrapf(err, "Unable to send request to get user %s", userName)
 	}
-
-	return res.Data, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data, errors.Wrapf(err, "Unable to send request to get user %s", userName)
 }
 
 // GetUsers returns the parameters of a user whose name is provided in argument
@@ -142,11 +150,10 @@ func (u *userService) GetUsers(ctx context.Context, userNames []string) ([]User,
 		return nil, errors.Wrap(err, "Unable to marshal user names")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/users/getUsers", a4CRestAPIPrefix),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
@@ -158,12 +165,12 @@ func (u *userService) GetUsers(ctx context.Context, userNames []string) ([]User,
 		Error Error  `json:"error,omitempty"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Unable to send request to get users %v", userNames)
 	}
-
-	return res.Data, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data, errors.Wrapf(err, "Unable to send request to get users %v", userNames)
 }
 
 // SearchUsers searches for users and returns an array of users as well as the
@@ -174,11 +181,10 @@ func (u *userService) SearchUsers(ctx context.Context, searchRequest SearchReque
 		return nil, 0, errors.Wrap(err, "Unable to marshal search request")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/users/search", a4CRestAPIPrefix),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
@@ -193,57 +199,69 @@ func (u *userService) SearchUsers(ctx context.Context, searchRequest SearchReque
 		Error Error `json:"error,omitempty"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.Wrapf(err, "Unable to send request to search users %v", searchRequest)
 	}
-
-	return res.Data.Data, res.Data.TotalResults, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data.Data, res.Data.TotalResults, errors.Wrapf(err, "Unable to send request to search users %v", searchRequest)
 }
 
 // DeleteUser deletes a user
 func (u *userService) DeleteUser(ctx context.Context, userName string) error {
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"DELETE",
 		fmt.Sprintf(userEndpointFormat, a4CRestAPIPrefix, userName),
-		nil,
 		nil)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send request to delete user %s", userName)
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send request to delete user %s", userName)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to send request to delete user %s", userName)
 }
 
 // AddRole adds a role to a user
 func (u *userService) AddRole(ctx context.Context, userName, roleName string) error {
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"PUT",
 		fmt.Sprintf("%s/users/%s/roles/%s", a4CRestAPIPrefix, userName, roleName),
-		nil,
 		nil)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send request to add role %s to user %s", roleName, userName)
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send request to add role %s to user %s", roleName, userName)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to add role %s to user %s", roleName, userName)
 }
 
 // RemoveRole removes a role to a user
 func (u *userService) RemoveRole(ctx context.Context, userName, roleName string) error {
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"DELETE",
 		fmt.Sprintf("%s/users/%s/roles/%s", a4CRestAPIPrefix, userName, roleName),
-		nil,
 		nil)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send request to delete role %s to user %s", roleName, userName)
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send request to delete role %s to user %s", roleName, userName)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to delete role %s to user %s", roleName, userName)
 }
 
 // CreateGroup creates a group and returns the identifier of the created group
@@ -255,11 +273,10 @@ func (u *userService) CreateGroup(ctx context.Context, group Group) (string, err
 		return groupID, errors.Wrap(err, "Unable to marshal create request")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/groups", a4CRestAPIPrefix),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
@@ -271,12 +288,12 @@ func (u *userService) CreateGroup(ctx context.Context, group Group) (string, err
 		Error Error  `json:"error,omitempty"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return groupID, err
+		return groupID, errors.Wrap(err, "Unable to send request to create a group")
 	}
-
-	return res.Data, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data, errors.Wrap(err, "Unable to send request to create a group")
 
 }
 
@@ -288,17 +305,21 @@ func (u *userService) UpdateGroup(ctx context.Context, groupID string, group Gro
 		return errors.Wrap(err, "Unable to marshal update request")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"PUT",
 		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send request to update group %s", groupID)
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send request to update group %s", groupID)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to update group %s", groupID)
 }
 
 // GetGroup returns the parameters of a group whose name is provided in argument
@@ -309,22 +330,21 @@ func (u *userService) GetGroup(ctx context.Context, groupID string) (Group, erro
 		Error Error `json:"error,omitempty"`
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"GET",
 		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
-		nil,
 		nil)
 
 	if err != nil {
 		return res.Data, errors.Wrapf(err, "Unable to send request to get group %s", groupID)
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return res.Data, err
+		return res.Data, errors.Wrapf(err, "Unable to send request to get group %s", groupID)
 	}
-
-	return res.Data, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data, errors.Wrapf(err, "Unable to get group %s", groupID)
 }
 
 // GetGroups returns the parameters of a group whose name is provided in argument
@@ -334,11 +354,10 @@ func (u *userService) GetGroups(ctx context.Context, groupIDs []string) ([]Group
 		return nil, errors.Wrap(err, "Unable to marshal group IDs")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/groups/getGroups", a4CRestAPIPrefix),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
@@ -350,12 +369,12 @@ func (u *userService) GetGroups(ctx context.Context, groupIDs []string) ([]Group
 		Error Error   `json:"error,omitempty"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Unable to send request to get groups %v", groupIDs)
 	}
-
-	return res.Data, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data, errors.Wrapf(err, "Unable to get groups %v", groupIDs)
 }
 
 // SearchGroups searches for groups and returns an array of groups as well as the
@@ -366,11 +385,10 @@ func (u *userService) SearchGroups(ctx context.Context, searchRequest SearchRequ
 		return nil, 0, errors.Wrap(err, "Unable to marshal search request")
 	}
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/groups/search", a4CRestAPIPrefix),
-		req,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(req),
 	)
 
 	if err != nil {
@@ -385,25 +403,29 @@ func (u *userService) SearchGroups(ctx context.Context, searchRequest SearchRequ
 		Error Error `json:"error,omitempty"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := u.client.Do(request)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.Wrapf(err, "Unable to send request to search groups %v", searchRequest)
 	}
-
-	return res.Data.Data, res.Data.TotalResults, err
+	err = ReadA4CResponse(response, &res)
+	return res.Data.Data, res.Data.TotalResults, errors.Wrapf(err, "Unable to search groups %v", searchRequest)
 }
 
 // DeleteGroup deletes a group
 func (u *userService) DeleteGroup(ctx context.Context, groupID string) error {
 
-	response, err := u.client.doWithContext(ctx,
+	request, err := u.client.NewRequest(ctx,
 		"DELETE",
 		fmt.Sprintf(groupEndpointFormat, a4CRestAPIPrefix, groupID),
-		nil,
 		nil)
 
 	if err != nil {
 		return errors.Wrapf(err, "Unable to send request to delete group %s", groupID)
 	}
-	return processA4CResponse(response, nil, http.StatusOK)
+	response, err := u.client.Do(request)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to send request to delete group %s", groupID)
+	}
+	err = ReadA4CResponse(response, nil)
+	return errors.Wrapf(err, "Unable to delete group %s", groupID)
 }

@@ -62,7 +62,7 @@ func Test_applicationService_IsApplicationExists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			a := &applicationService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			found, err := a.IsApplicationExist(tt.args.ctx, tt.args.appID)
@@ -93,7 +93,7 @@ func Test_applicationService_GetApplicationsID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			a := &applicationService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			results, err := a.GetApplicationsID(tt.args.ctx, tt.args.appID)
@@ -140,7 +140,7 @@ func Test_applicationService_GetApplicationByID(t *testing.T) {
 		t.Run(tt.id, func(t *testing.T) {
 
 			a := &applicationService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			app, err := a.GetApplicationByID(tt.args.ctx, tt.args.appID)
