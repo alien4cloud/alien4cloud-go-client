@@ -188,6 +188,135 @@ func Test_deploymentService_UpdateApplication(t *testing.T) {
 
 }
 
+func Test_deploymentService_GetDeploymentList(t *testing.T) {
+	mt := &Time{time.Now()}
+	b, err := json.Marshal(mt)
+	assert.NilError(t, err)
+	err = json.Unmarshal(b, mt)
+	assert.NilError(t, err)
+	expectedResult := []Deployment{
+		{
+			ID:            "D1",
+			EnvironmentID: "E1",
+			StartDate:     *mt,
+			EndDate:       *mt,
+		},
+		{
+			ID:            "D2",
+			EnvironmentID: "E2",
+			StartDate:     *mt,
+			EndDate:       *mt,
+		},
+		{
+			ID:            "D3",
+			EnvironmentID: "E3",
+			StartDate:     *mt,
+			EndDate:       *mt,
+		},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		envID := r.URL.Query().Get("environmentId")
+		if envID == "error" {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		}
+		var deploymentListResponse struct {
+			Data struct {
+				Data []struct {
+					Deployment Deployment
+				}
+				TotalResults int `json:"totalResults"`
+			} `json:"data"`
+		}
+		deploymentListResponse.Data.TotalResults = len(expectedResult)
+		deploymentListResponse.Data.Data = make([]struct{ Deployment Deployment }, 0, len(expectedResult))
+		for _, er := range expectedResult {
+			deploymentListResponse.Data.Data = append(deploymentListResponse.Data.Data, struct{ Deployment Deployment }{er})
+		}
+		b, err := json.Marshal(&deploymentListResponse)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(b)
+	}))
+
+	type args struct {
+		ctx   context.Context
+		appID string
+		envID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"GetDeploymentListOK", args{context.Background(), "normal", "envID"}, false},
+		{"GetDeploymentListError", args{context.Background(), "error", "error"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			got, err := d.GetDeploymentList(tt.args.ctx, tt.args.appID, tt.args.envID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.UndeployApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.DeepEqual(t, got, expectedResult)
+			}
+		})
+	}
+}
+
+func Test_deploymentService_undeployApplication(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx   context.Context
+		appID string
+		envID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"UndeployApplicationOK", args{context.Background(), "normal", "envID"}, false},
+		{"UndeployApplicationError", args{context.Background(), "error", "envID"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			if err := d.UndeployApplication(tt.args.ctx, tt.args.appID, tt.args.envID); (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.UndeployApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func Test_deploymentService_WaitUntilStateIs(t *testing.T) {
 	closeCh := make(chan struct{})
 	defer close(closeCh)
