@@ -30,6 +30,105 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func Test_deploymentService_DeployApplication(t *testing.T) {
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/topologies/TopologyID/locations.*`).Match([]byte(r.URL.Path)):
+			var res struct {
+				Data []LocationMatch `json:"data"`
+			}
+			res.Data = []LocationMatch{
+				{
+					Location: LocationConfiguration{
+						Name:           "location",
+						ID:             "locationID",
+						OrchestratorID: "orchestratorID",
+					},
+				},
+			}
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(b)
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
+			var res struct {
+				Data string `json:"data"`
+			}
+			res.Data = "TopologyID"
+			b, err := json.Marshal(&res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(b)
+			return
+
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment-topology/location-policies`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
+		case regexp.MustCompile(`.*/applications/deployment`).Match([]byte(r.URL.Path)):
+			b, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			appDeployRequest := new(ApplicationDeployRequest)
+			err = json.Unmarshal(b, appDeployRequest)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			if appDeployRequest.ApplicationID == "error" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx      context.Context
+		appID    string
+		envID    string
+		location string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"NormalDeploy", args{context.Background(), "normal", "envID", "location"}, false},
+		{"DeployError", args{context.Background(), "error", "envID", "location"}, true},
+	}
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: client.(*a4cClient),
+			}
+
+			if err := d.DeployApplication(tt.args.ctx, tt.args.appID, tt.args.envID, tt.args.location); (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.DeployApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func Test_deploymentService_UpdateApplication(t *testing.T) {
 	closeCh := make(chan struct{})
 	defer close(closeCh)
