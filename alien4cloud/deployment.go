@@ -101,8 +101,7 @@ func (d *deploymentService) GetLocationsMatching(ctx context.Context, topologyID
 	}
 	response, err := d.client.Do(request)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to get locations matching topology for application '%s' in '%s' environment",
-			topologyID, envID)
+		return nil, errors.Wrapf(err, "Failed to get locations matching topology for application '%s' in '%s' environment", topologyID, envID)
 	}
 	err = ReadA4CResponse(response, &res)
 	return res.Data, errors.Wrapf(err, "Cannot convert the body response to request on locations matching topology '%s' in '%s' environment",
@@ -507,7 +506,7 @@ func (d *deploymentService) GetOutputAttributes(ctx context.Context, application
 
 // GetAttributesValue returns the application deployment attributes for the first instance of the specified nodeName
 func (d *deploymentService) GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error) {
-	return d.getInstanceAttributesValue(ctx, applicationID, environmentID, nodeName, "0", requestedAttributesName)
+	return d.GetInstanceAttributesValue(ctx, applicationID, environmentID, nodeName, "0", requestedAttributesName)
 }
 
 // GetInstanceAttributesValue returns the application deployment attributes for a specified nodeName and instanceName

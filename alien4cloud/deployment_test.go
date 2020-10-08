@@ -265,11 +265,244 @@ func Test_deploymentService_GetDeploymentList(t *testing.T) {
 			}
 			got, err := d.GetDeploymentList(tt.args.ctx, tt.args.appID, tt.args.envID)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("deploymentService.UndeployApplication() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("deploymentService.GetDeploymentList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err == nil {
 				assert.DeepEqual(t, got, expectedResult)
 			}
+		})
+	}
+}
+
+func Test_deploymentService_GetAttributesValue(t *testing.T) {
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment/informations`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/noresult/environments/.*/deployment/informations`).Match([]byte(r.URL.Path)):
+			info := new(Informations)
+			b, err := json.Marshal(info)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(b)
+			w.WriteHeader(http.StatusOK)
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment/informations`).Match([]byte(r.URL.Path)):
+			info := new(Informations)
+			info.Data = map[string]map[string]struct {
+				State      string            "json:\"state\""
+				Attributes map[string]string "json:\"attributes\""
+			}{
+				"node1": {
+					"0": {
+						Attributes: map[string]string{
+							"attr1": "val1",
+							"attr2": "val2",
+							"attr3": "val3",
+						},
+					},
+					"1": {
+						Attributes: map[string]string{
+							"attr1": "val11",
+							"attr2": "val12",
+							"attr3": "val13",
+						},
+					},
+				},
+			}
+
+			b, err := json.Marshal(info)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(b)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx                 context.Context
+		appID               string
+		envID               string
+		nodeName            string
+		requestedAttributes []string
+	}
+	tests := []struct {
+		name               string
+		args               args
+		wantErr            bool
+		expectedAttributes map[string]string
+	}{
+		{"GetAttributesValueOK", args{context.Background(), "normal", "envID", "node1", []string{"attr1", "attr3"}}, false, map[string]string{"attr1": "val1", "attr3": "val3"}},
+		{"GetAttributesValueNoResult", args{context.Background(), "noresult", "envID", "node1", nil}, false, nil},
+		{"GetAttributesValueError", args{context.Background(), "error", "envID", "node1", nil}, true, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			attributes, err := d.GetAttributesValue(tt.args.ctx, tt.args.appID, tt.args.envID, tt.args.nodeName, tt.args.requestedAttributes)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetAttributesValue() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.DeepEqual(t, attributes, tt.expectedAttributes)
+		})
+	}
+}
+
+func Test_deploymentService_GetNodeStatus(t *testing.T) {
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment/informations`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/noresult/environments/.*/deployment/informations`).Match([]byte(r.URL.Path)):
+			info := new(Informations)
+			b, err := json.Marshal(info)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(b)
+			w.WriteHeader(http.StatusOK)
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment/informations`).Match([]byte(r.URL.Path)):
+			info := new(Informations)
+			info.Data = map[string]map[string]struct {
+				State      string            "json:\"state\""
+				Attributes map[string]string "json:\"attributes\""
+			}{
+				"node1": {
+					"0": {
+						State: "STARTED",
+					},
+					"1": {
+						State: "ERROR",
+					},
+				},
+			}
+
+			b, err := json.Marshal(info)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(b)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx      context.Context
+		appID    string
+		envID    string
+		nodeName string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		wantErr        bool
+		expectedStatus string
+	}{
+		{"GetNodeStatusOK", args{context.Background(), "normal", "envID", "node1"}, false, "STARTED"},
+		{"GetNodeStatusNoResult", args{context.Background(), "noresult", "envID", "node1"}, false, ""},
+		{"GetNodeStatusError", args{context.Background(), "error", "envID", "node1"}, true, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			status, err := d.GetNodeStatus(tt.args.ctx, tt.args.appID, tt.args.envID, tt.args.nodeName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetNodeStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.Equal(t, status, tt.expectedStatus)
+		})
+	}
+}
+
+func Test_deploymentService_GetOutputAttributes(t *testing.T) {
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/runtime/error/environment/.*/topology`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/runtime/noresult/environment/.*/topology`).Match([]byte(r.URL.Path)):
+			info := new(RuntimeTopology)
+			b, err := json.Marshal(info)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(b)
+			w.WriteHeader(http.StatusOK)
+			return
+		case regexp.MustCompile(`.*/runtime/.*/environment/.*/topology`).Match([]byte(r.URL.Path)):
+			info := new(RuntimeTopology)
+			info.Data.Topology.OutputAttributes = map[string][]string{"output1": {"v11", "v12"}, "output2": {"v21", "v22"}}
+
+			b, err := json.Marshal(info)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(b)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx   context.Context
+		appID string
+		envID string
+	}
+	tests := []struct {
+		name            string
+		args            args
+		wantErr         bool
+		expectedOutputs map[string][]string
+	}{
+		{"GetOutputAttributesOK", args{context.Background(), "normal", "envID"}, false, map[string][]string{"output1": {"v11", "v12"}, "output2": {"v21", "v22"}}},
+		{"GetOutputAttributesNoResult", args{context.Background(), "noresult", "envID"}, false, nil},
+		{"GetOutputAttributesError", args{context.Background(), "error", "envID"}, true, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			status, err := d.GetOutputAttributes(tt.args.ctx, tt.args.appID, tt.args.envID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetOutputAttributes() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.DeepEqual(t, status, tt.expectedOutputs)
 		})
 	}
 }
@@ -717,4 +950,84 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_deploymentService_GetLastWorkflowExecution(t *testing.T) {
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/active-deployment-monitored`).Match([]byte(r.URL.Path)):
+			appName := regexp.MustCompile(`.*/applications/(.*)/environments/.*/active-deployment-monitored`).FindStringSubmatch(r.URL.Path)[1]
+			var res struct {
+				Data struct {
+					Deployment struct {
+						ID string `json:"id"`
+					} `json:"deployment"`
+				} `json:"data"`
+			}
+			res.Data.Deployment.ID = appName
+			b, err := json.Marshal(res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(b)
+			return
+		case regexp.MustCompile(`.*/workflow_execution/error`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/workflow_execution/.*`).Match([]byte(r.URL.Path)):
+			wfExec := &struct {
+				Data WorkflowExecution `json:"data"`
+			}{
+				WorkflowExecution{Execution: Execution{ID: "1"}},
+			}
+
+			b, err := json.Marshal(wfExec)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(b)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	type args struct {
+		ctx                 context.Context
+		appID               string
+		envID               string
+		nodeName            string
+		requestedAttributes []string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		wantErr        bool
+		expectedWfExec *WorkflowExecution
+	}{
+		{"GetLastWorkflowExecutionOK", args{context.Background(), "normal", "envID", "node1", []string{"attr1", "attr3"}}, false, &WorkflowExecution{Execution: Execution{ID: "1"}}},
+		{"GetLastWorkflowExecutionError", args{context.Background(), "error", "envID", "node1", nil}, true, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			wfExec, err := d.GetLastWorkflowExecution(tt.args.ctx, tt.args.appID, tt.args.envID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetLastWorkflowExecution() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.DeepEqual(t, wfExec, tt.expectedWfExec)
+			}
+		})
+	}
 }
