@@ -12,6 +12,7 @@ go build -o getuser.test
 ```
 
 Now, run this example providing in arguments:
+
 * the Alien4Cloud URL
 * credentials of a user having the administrator
 * user name for which to get parameters

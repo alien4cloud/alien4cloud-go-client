@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -28,7 +27,7 @@ type CatalogService interface {
 }
 
 type catalogService struct {
-	client restClient
+	client *a4cClient
 }
 
 // ParsingErr is an error returned in case of parsing error
@@ -83,8 +82,12 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 		u += "?workspace=" + url.QueryEscape(workspace)
 	}
 
+	// TODO(loicalbertin) we may have an issue on large files as it will load the whole file in memory.
+	// We should consider using io.Pipe() to create a synchronous in-memory pipe.
+	// The tricky part will be to make it work with an expected io.ReadSeeker.
 	var b bytes.Buffer
 	m := multipart.NewWriter(&b)
+	defer m.Close()
 	if x, ok := csar.(io.Closer); ok {
 		defer x.Close()
 	}
@@ -98,10 +101,11 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 	}
 	m.Close()
 
-	response, err := cs.client.doWithContext(ctx, "POST", u, b.Bytes(), []Header{{"Content-Type", m.FormDataContentType()}})
+	request, err := cs.client.NewRequest(ctx, "POST", u, bytes.NewReader(b.Bytes()))
 	if err != nil {
-		return c, errors.Wrap(err, "Cannot send a request in order to upload a CSAR")
+		return c, errors.Wrap(err, "Cannot create a request in order to upload a CSAR")
 	}
+	request.Header.Set("Content-Type", m.FormDataContentType())
 
 	var res struct {
 		Data struct {
@@ -110,9 +114,14 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := cs.client.Do(request)
 	if err != nil {
-		return c, errors.Wrap(err, "Cannot convert the body of the uploaded CSAR description")
+		return c, errors.Wrap(err, "Cannot send a request in order to upload a CSAR")
+	}
+
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return c, errors.Wrap(err, "Cannot read response on CSAR upload")
 	}
 
 	if len(res.Data.Errors) > 0 {

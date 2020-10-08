@@ -129,7 +129,7 @@ func Test_topologyService_AddWorkflowActivity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tSrv := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := tSrv.AddWorkflowActivity(tt.args.ctx, tt.args.a4cCtx, tt.args.workflowName, tt.args.activity); (err != nil) != tt.wantErr {
 				t.Errorf("topologyService.AddWorkflowActivity() error = %v, wantErr %v", err, tt.wantErr)
@@ -209,7 +209,7 @@ func Test_topologyService_CreateAndDeleteWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tSrv := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			err := tSrv.CreateWorkflow(tt.args.ctx, tt.args.editorContext, tt.args.workflowName)
 			if (err != nil) != tt.wantErr {
@@ -222,7 +222,7 @@ func Test_topologyService_CreateAndDeleteWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tSrv := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			err := tSrv.DeleteWorkflow(tt.args.ctx, tt.args.editorContext, tt.args.workflowName)
 			if (err != nil) != tt.wantErr {

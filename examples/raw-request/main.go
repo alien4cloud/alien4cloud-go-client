@@ -25,17 +25,13 @@ import (
 )
 
 // Command arguments
-var url, user, password, query string
-var from, size int
+var url, user, password string
 
 func init() {
 	// Initialize command arguments
 	flag.StringVar(&url, "url", "http://localhost:8088", "Alien4Cloud URL")
 	flag.StringVar(&user, "user", "admin", "User")
 	flag.StringVar(&password, "password", "changeme", "Password")
-	flag.StringVar(&query, "query", "", "string to query")
-	flag.IntVar(&from, "from", 0, "Index from which to return users")
-	flag.IntVar(&size, "size", 0, "Maximum number of users to return")
 
 }
 
@@ -58,18 +54,44 @@ func main() {
 		log.Panic(err)
 	}
 
-	searchRequest := alien4cloud.SearchRequest{
-		From:  from,
-		Size:  size,
-		Query: query,
-	}
-	users, totalNumber, err := client.UserService().SearchUsers(ctx, searchRequest)
+	request, err := client.NewRequest(ctx, "GET", "/rest/v1/auth/status", nil)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	for _, user := range users {
-		fmt.Printf("User %s, roles: %v\n", user.UserName, user.Roles)
+	response, err := client.Do(request)
+
+	var res struct {
+		Data struct {
+			AuthSystem     string   `json:"authSystem"`
+			GithubUsername string   `json:"githubUsername"`
+			Groups         []string `json:"groups"`
+			IsLogged       bool     `json:"isLogged"`
+			Roles          []string `json:"roles"`
+			Username       string   `json:"username"`
+		} `json:"data"`
 	}
-	fmt.Printf("Total number of users: %d\n", totalNumber)
+
+	err = alien4cloud.ReadA4CResponse(response, &res)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	fmt.Printf("User %s:\n", res.Data.Username)
+	fmt.Printf("\tGithubUsername %q\n", res.Data.GithubUsername)
+	fmt.Printf("\tAuthSystem %q\n", res.Data.AuthSystem)
+	fmt.Printf("\tIsLogged \"%v\"\n", res.Data.IsLogged)
+	if len(res.Data.Groups) > 0 {
+		fmt.Printf("\tGroups:\n")
+		for _, g := range res.Data.Groups {
+			fmt.Printf("\t\t- %q\n", g)
+		}
+	}
+	if len(res.Data.Roles) > 0 {
+		fmt.Printf("\tRoles:\n")
+		for _, r := range res.Data.Roles {
+			fmt.Printf("\t\t- %q\n", r)
+		}
+	}
+
 }

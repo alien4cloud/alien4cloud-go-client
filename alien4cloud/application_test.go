@@ -27,6 +27,338 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func Test_applicationService_CreateAppli(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/catalog/topologies/search`).Match([]byte(r.URL.Path)):
+			b, err := ioutil.ReadAll(r.Body)
+			defer r.Body.Close()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			sr := new(SearchRequest)
+			err = json.Unmarshal(b, sr)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			if sr.Query == "notemplate" {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+
+			_, _ = w.Write([]byte(`{"data":{"data":[{"ID":"templateID"}],"totalResults":1}}`))
+			return
+		case regexp.MustCompile(`.*/applications`).Match([]byte(r.URL.Path)):
+			b, err := ioutil.ReadAll(r.Body)
+			defer r.Body.Close()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			acr := new(ApplicationCreateRequest)
+			err = json.Unmarshal(b, acr)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if acr.Name == "error" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"code": 400,"message":"bad"}}`))
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":"appID"}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx          context.Context
+		appID        string
+		templateName string
+	}
+	tests := []struct {
+		name          string
+		args          args
+		wantErr       bool
+		expectedAppID string
+	}{
+		{"CreateApp", args{context.Background(), "myApp", "templateName"}, false, "appID"},
+		{"CreateAppNoTemplateError", args{context.Background(), "myApp", "notemplate"}, true, ""},
+		{"CreateAppError", args{context.Background(), "error", "templateName"}, true, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			appID, err := a.CreateAppli(tt.args.ctx, tt.args.appID, tt.args.templateName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.CreateAppli() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			assert.Equal(t, appID, tt.expectedAppID)
+		})
+	}
+}
+
+func Test_applicationService_GetEnvironmentIDbyName(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/search`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/search`).Match([]byte(r.URL.Path)):
+			type envIDStruct struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			}
+			type envIDDataStruct struct {
+				Types []string      `json:"types"`
+				Data  []envIDStruct `json:"data"`
+			}
+			type envIDRespStruct struct {
+				Data envIDDataStruct `json:"data"`
+			}
+			res := &envIDRespStruct{
+				Data: envIDDataStruct{
+					Data: []envIDStruct{
+						{
+							Name: "myEnv",
+							ID:   "myEnvID",
+						},
+						{
+							Name: "my2ndEnv",
+							ID:   "my2ndEnvID",
+						},
+						{
+							Name: "myOtherEnv",
+							ID:   "myOtherEnvID",
+						},
+					},
+				},
+			}
+			b, err := json.Marshal(res)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write(b)
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx     context.Context
+		appID   string
+		envName string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"GetEnvironmentIDbyNameOK", args{context.Background(), "myApp", "myEnv"}, false},
+		{"GetEnvironmentIDbyNameError", args{context.Background(), "error", ""}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			envID, err := a.GetEnvironmentIDbyName(tt.args.ctx, tt.args.appID, tt.args.envName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.GetEnvironmentIDbyName() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.Equal(t, envID, tt.args.envName+"ID")
+			}
+		})
+	}
+}
+
+func Test_applicationService_DeleteApplication(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx   context.Context
+		appID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteApplicationOK", args{context.Background(), "myApp"}, false},
+		{"DeleteApplicationError", args{context.Background(), "error"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			err := a.DeleteApplication(tt.args.ctx, tt.args.appID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.DeleteApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_applicationService_SetTagToApplication(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/tags`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/tags`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx      context.Context
+		appID    string
+		tagName  string
+		tagValue string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteApplicationOK", args{context.Background(), "myApp", "t", "v"}, false},
+		{"DeleteApplicationError", args{context.Background(), "error", "t", "v"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			err := a.SetTagToApplication(tt.args.ctx, tt.args.appID, tt.args.tagName, tt.args.tagValue)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.DeleteApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_applicationService_GetDeploymentTopology(t *testing.T) {
+	expectedTopology := &Topology{}
+	expectedTopology.Data.Topology.ArchiveName = "arch"
+	expectedTopology.Data.Topology.ArchiveVersion = "1.0.0"
+	expectedTopology.Data.Topology.Description = "desc"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			b, err := json.Marshal(expectedTopology)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(b)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx   context.Context
+		appID string
+		envID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteApplicationOK", args{context.Background(), "myApp", "env"}, false},
+		{"DeleteApplicationError", args{context.Background(), "error", "env"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			topology, err := a.GetDeploymentTopology(tt.args.ctx, tt.args.appID, tt.args.envID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.DeleteApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.DeepEqual(t, topology, expectedTopology)
+			}
+		})
+	}
+}
+
 func Test_applicationService_IsApplicationExists(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -62,7 +394,7 @@ func Test_applicationService_IsApplicationExists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			a := &applicationService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			found, err := a.IsApplicationExist(tt.args.ctx, tt.args.appID)
@@ -93,7 +425,7 @@ func Test_applicationService_GetApplicationsID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			a := &applicationService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			results, err := a.GetApplicationsID(tt.args.ctx, tt.args.appID)
@@ -140,7 +472,7 @@ func Test_applicationService_GetApplicationByID(t *testing.T) {
 		t.Run(tt.id, func(t *testing.T) {
 
 			a := &applicationService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			app, err := a.GetApplicationByID(tt.args.ctx, tt.args.appID)

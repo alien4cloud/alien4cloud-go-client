@@ -47,7 +47,7 @@ func Test_eventService_GetEvents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			evService := &eventService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 
 			_, nbEvents, err := evService.GetEventsForApplicationEnvironment(tt.args.ctx, tt.args.envID, 0, 10)

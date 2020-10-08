@@ -12,6 +12,7 @@ go build -o search.test
 ```
 
 Now, run this example providing in arguments:
+
 * the Alien4Cloud URL
 * credentials of a user having the administrator
 * search properties (optional):
@@ -27,4 +28,5 @@ For example:
            -password mypasswd \
            -size 10
 ```
+
 This will return the first 10 users, as well as the total number of users.

@@ -15,10 +15,10 @@
 package alien4cloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/pkg/errors"
 )
@@ -30,15 +30,14 @@ type LogService interface {
 }
 
 type logService struct {
-	client            restClient
-	deploymentService *deploymentService
+	client *a4cClient
 }
 
 // GetLogsOfApplication returns the logs of the application and environment filtered
 func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID string, environmentID string,
 	filters LogFilter, fromIndex int) ([]Log, int, error) {
 
-	deployments, err := l.deploymentService.GetDeploymentList(ctx, applicationID, environmentID)
+	deployments, err := l.client.deploymentService.GetDeploymentList(ctx, applicationID, environmentID)
 
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Unable to get deployment list for app '%s' and env '%s'", applicationID, environmentID)
@@ -65,15 +64,14 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 		return nil, 0, errors.Wrap(err, "Unable to marshal log filters in order to get the number of logs available for this deployment.")
 	}
 
-	response, err := l.client.doWithContext(ctx,
+	request, err := l.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/deployment/logs/search", a4CRestAPIPrefix),
-		body,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(body),
 	)
 
 	if err != nil {
-		return nil, 0, errors.Wrapf(err, "Cannot send a request to get number of logs from application '%s' and environment '%s'", applicationID, environmentID)
+		return nil, 0, errors.Wrapf(err, "Cannot create a request to get number of logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
 	var res struct {
 		Data struct {
@@ -84,9 +82,13 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 		} `json:"data"`
 	}
 
-	err = processA4CResponse(response, &res, http.StatusOK)
+	response, err := l.client.Do(request)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Unable to unmarshal logs from orchestrator")
+		return nil, 0, errors.Wrapf(err, "Cannot send a request to get number of logs from application '%s' and environment '%s'", applicationID, environmentID)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "Cannot get number of logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
 
 	// Then we send the resquest to get all the logs returned for this deployment.
@@ -109,20 +111,20 @@ func (l *logService) GetLogsOfApplication(ctx context.Context, applicationID str
 		return nil, 0, errors.Wrap(err, "Unable to marshal log filters to get logs for the deployment.")
 	}
 
-	response, err = l.client.doWithContext(ctx,
+	request, err = l.client.NewRequest(ctx,
 		"POST",
 		fmt.Sprintf("%s/deployment/logs/search", a4CRestAPIPrefix),
-		body,
-		[]Header{contentTypeAppJSONHeader},
+		bytes.NewReader(body),
 	)
 
 	if err != nil {
+		return nil, 0, errors.Wrapf(err, "Cannot create a request to get logs from application '%s' and environment '%s'", applicationID, environmentID)
+	}
+	response, err = l.client.Do(request)
+	if err != nil {
 		return nil, 0, errors.Wrapf(err, "Cannot send a request to get logs from application '%s' and environment '%s'", applicationID, environmentID)
 	}
-	err = processA4CResponse(response, &res, http.StatusOK)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "Unable to unmarshal logs from orchestrator")
-	}
+	err = ReadA4CResponse(response, &res)
 
-	return res.Data.Data, len(res.Data.Data), nil
+	return res.Data.Data, len(res.Data.Data), errors.Wrapf(err, "Cannot get logs from application '%s' and environment '%s'", applicationID, environmentID)
 }

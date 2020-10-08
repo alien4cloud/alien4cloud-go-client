@@ -104,7 +104,7 @@ func Test_topologyService_AddPolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tServ := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := tServ.AddPolicy(tt.args.ctx, tt.args.a4cCtx, tt.args.policyName, tt.args.policyTypeID); (err != nil) != tt.wantErr {
 				t.Errorf("topologyService.AddPolicy() error = %v, wantErr %v", err, tt.wantErr)
@@ -205,7 +205,7 @@ func Test_topologyService_AddTargetsToPolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tServ := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := tServ.AddTargetsToPolicy(tt.args.ctx, tt.args.a4cCtx, tt.args.policyName, tt.args.targets); (err != nil) != tt.wantErr {
 				t.Errorf("topologyService.AddTargetsToPolicy() error = %v, wantErr %v", err, tt.wantErr)
@@ -304,7 +304,7 @@ func Test_topologyService_DeletePolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tServ := &topologyService{
-				client: restClient{Client: http.DefaultClient, baseURL: ts.URL},
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
 			if err := tServ.DeletePolicy(tt.args.ctx, tt.args.a4cCtx, tt.args.policyName); (err != nil) != tt.wantErr {
 				t.Errorf("topologyService.DeletePolicy() error = %v, wantErr %v", err, tt.wantErr)

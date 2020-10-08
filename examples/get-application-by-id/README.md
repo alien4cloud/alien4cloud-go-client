@@ -16,6 +16,7 @@ go build -o getappbyid.test
 ```
 
 Now, run this example providing in arguments:
+
 * the Alien4Cloud URL
 * credentials of the user who has deployed the application
 * the ID of the application
