@@ -82,6 +82,13 @@ func newHTTPServerTestTopology(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
 			return
+		case regexp.MustCompile(`.*/editor/unknownTID`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/editor/.*`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
 		case regexp.MustCompile(`.*/applications/.*/environments/.*/topology`).Match([]byte(r.URL.Path)):
 			var res struct {
 				Data string `json:"data"`
@@ -107,7 +114,7 @@ func newHTTPServerTestTopology(t *testing.T) *httptest.Server {
 					Data  []DataStruct `json:"data"`
 				} `json:"data"`
 			}
-			res.Data.Data = []DataStruct{DataStruct{ArchiveName: "testArchive"}}
+			res.Data.Data = []DataStruct{{ArchiveName: "testArchive"}}
 			b, err := json.Marshal(&res)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -131,4 +138,41 @@ func newHTTPServerTestTopology(t *testing.T) *httptest.Server {
 		// Should not go there
 		t.Errorf("Unexpected call for request %+v", r)
 	}))
+}
+
+func Test_topologyService_SaveA4CTopology(t *testing.T) {
+	ts := newHTTPServerTestTopology(t)
+	defer ts.Close()
+
+	type args struct {
+		ctx        context.Context
+		a4cContext *TopologyEditorContext
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"ExistingApp", args{context.Background(), &TopologyEditorContext{AppID: "existingApp", EnvID: "existingEnv", TopologyID: "tid", PreviousOperationID: "1"}}, false},
+		{"ExistingAppNoTopoID", args{context.Background(), &TopologyEditorContext{AppID: "existingApp", EnvID: "existingEnv", TopologyID: "", PreviousOperationID: "1"}}, false},
+		{"NilContext", args{context.Background(), nil}, true},
+		{"UnknownApp", args{context.Background(), &TopologyEditorContext{AppID: "unknownApp", EnvID: "unknownEnv", TopologyID: "unknownTID"}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			topoService := &topologyService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			err := topoService.SaveA4CTopology(tt.args.ctx, tt.args.a4cContext)
+			if err != nil && !tt.wantErr {
+				t.Errorf("topologyService.SaveA4CTopology() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.args.a4cContext != nil {
+				assert.Equal(t, tt.args.a4cContext.PreviousOperationID, "")
+			}
+		})
+	}
 }
