@@ -1,5 +1,7 @@
 # alien4cloud-go-client
 
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/alien4cloud/alien4cloud-go-client/v2)](https://pkg.go.dev/github.com/alien4cloud/alien4cloud-go-client/v2) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=alien4cloud_alien4cloud-go-client&metric=alert_status)](https://sonarcloud.io/dashboard?id=alien4cloud_alien4cloud-go-client)
+
 Go client for [Alien4Cloud](https://github.com/alien4cloud/alien4cloud) REST API.
 
 See examples describing how to:
