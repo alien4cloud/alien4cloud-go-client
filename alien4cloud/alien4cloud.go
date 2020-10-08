@@ -46,12 +46,12 @@ type Client interface {
 	CatalogService() CatalogService
 	UserService() UserService
 
-	// NewRequest allows to create a custom request to be send to Alien4Cloud
+	// NewRequest allows to create a custom request to be sent to Alien4Cloud
 	// given a Context, method, url path and optional body.
 	//
 	// If the provided body is also an io.Closer, the Client Do function will automatically
 	// close it.
-	// The body need to be a ReadSeeker in order to rewind request on retries.
+	// The body needs to be a ReadSeeker in order to rewind request on retries.
 	//
 	// NewRequestWithContext returns a Request suitable for use with Client.Do
 	//
@@ -84,7 +84,7 @@ type Client interface {
 // It allows to perform actions based on the given response before re-sending a request.
 // A typical usecase is to automatically call the Client.Login() function when receiving a 403 Forbidden response.
 //
-// It is possible to alter the request to be send by returning an updated request. But in most cases
+// It is possible to alter the request to be sent by returning an updated request. But in most cases
 // the given original request can safely be returned as it. This framework take care of rewinding the request body
 // before giving it to retry functions.
 //
