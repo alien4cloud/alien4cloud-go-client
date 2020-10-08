@@ -1,4 +1,5 @@
 # Set input properties and input artifacts
+
 This example shows how the Alien4Cloud go client can be used to set an application
 input property or input artifact.
 
@@ -16,6 +17,7 @@ go build -o setinput.test
 ```
 
 Now, to set an application input property, run this example providing in arguments:
+
 * the Alien4Cloud URL
 * credentials of the user who has deployed the application
 * the name of the application
@@ -34,6 +36,7 @@ For example :
 ```
 
 To set an application input artifact, run this example, providing in arguments:
+
 * the Alien4Cloud URL
 * credentials of the user who has deployed the application
 * the name of the application
