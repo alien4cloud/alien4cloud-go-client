@@ -116,8 +116,7 @@ func (d *deploymentService) DeployApplication(ctx context.Context, appID string,
 	// get locations matching this application
 	topologyID, err := d.client.topologyService.GetTopologyID(ctx, appID, envID)
 	if err != nil {
-		return errors.Wrapf(err, "Unable to get application topology for app %s and env %s",
-			appID, envID)
+		return errors.Wrapf(err, "Unable to get application topology for app %s and env %s", appID, envID)
 	}
 
 	locationsMatch, err := d.GetLocationsMatching(ctx, topologyID, envID)

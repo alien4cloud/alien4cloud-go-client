@@ -359,6 +359,6 @@ func (a *applicationService) GetDeploymentTopology(ctx context.Context, appID st
 	if err != nil {
 		return res, errors.Wrapf(err, "Cannot get the deployment topology content for application '%s' on environment '%s'", appID, envID)
 	}
-
-	return res, errors.Wrapf(ReadA4CResponse(resp, res), "Cannot get the deployment topology content for application '%s' on environment '%s'", appID, envID)
+	err = ReadA4CResponse(resp, res)
+	return res, errors.Wrapf(err, "Cannot get the deployment topology content for application '%s' on environment '%s'", appID, envID)
 }

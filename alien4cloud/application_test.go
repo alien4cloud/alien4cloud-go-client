@@ -250,6 +250,115 @@ func Test_applicationService_DeleteApplication(t *testing.T) {
 	}
 }
 
+func Test_applicationService_SetTagToApplication(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/tags`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/tags`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusOK)
+			return
+
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx      context.Context
+		appID    string
+		tagName  string
+		tagValue string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteApplicationOK", args{context.Background(), "myApp", "t", "v"}, false},
+		{"DeleteApplicationError", args{context.Background(), "error", "t", "v"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			err := a.SetTagToApplication(tt.args.ctx, tt.args.appID, tt.args.tagName, tt.args.tagValue)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.DeleteApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_applicationService_GetDeploymentTopology(t *testing.T) {
+	expectedTopology := &Topology{}
+	expectedTopology.Data.Topology.ArchiveName = "arch"
+	expectedTopology.Data.Topology.ArchiveVersion = "1.0.0"
+	expectedTopology.Data.Topology.Description = "desc"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/error/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/.*/deployment-topology`).Match([]byte(r.URL.Path)):
+			b, err := json.Marshal(expectedTopology)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(b)
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+
+	defer ts.Close()
+	client, err := NewClient(ts.URL, "", "", "", false)
+	assert.NilError(t, err)
+	type args struct {
+		ctx   context.Context
+		appID string
+		envID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"DeleteApplicationOK", args{context.Background(), "myApp", "env"}, false},
+		{"DeleteApplicationError", args{context.Background(), "error", "env"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: client.(*a4cClient),
+			}
+
+			topology, err := a.GetDeploymentTopology(tt.args.ctx, tt.args.appID, tt.args.envID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.DeleteApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.DeepEqual(t, topology, expectedTopology)
+			}
+		})
+	}
+}
+
 func Test_applicationService_IsApplicationExists(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
