@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-Package alien4cloud provides a client for using the [Alien4Cloud](https://alien4cloud.github.io) API.
+Package alien4cloud provides a client for using the https://alien4cloud.github.io API.
 
 Usage:
 	import "github.com/alien4cloud/alien4cloud-go-client/v2/alien4cloud"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
@@ -40,7 +40,7 @@ Then you could create a client and use the different services exposed by the Ali
 NOTE: Using the https://pkg.go.dev/context package, allows to easily pass cancelation signals and deadlines
 to API calls for handling a request.
 
-For more sample code snippets, see the https://github.com/lien4cloud/alien4cloud-go-client/tree/master/examples directory.
+For more sample code snippets, see the https://github.com/alien4cloud/alien4cloud-go-client/tree/master/examples directory.
 
 */
 package alien4cloud
