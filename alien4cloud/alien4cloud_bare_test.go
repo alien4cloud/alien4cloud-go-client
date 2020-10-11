@@ -107,7 +107,8 @@ there
 	})
 
 	resp, err := client.Do(req, myRetryFn)
-	ReadA4CResponse(resp, respData)
+	assert.NilError(t, err)
+	err = ReadA4CResponse(resp, respData)
 	assert.NilError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
 	assert.Equal(t, respData.Data, "success")
