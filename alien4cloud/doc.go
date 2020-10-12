@@ -16,7 +16,7 @@
 Package alien4cloud provides a client for using the https://alien4cloud.github.io API.
 
 Usage:
-	import "github.com/alien4cloud/alien4cloud-go-client/v2/alien4cloud"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
+	import "github.com/alien4cloud/alien4cloud-go-client/v3/alien4cloud"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
 	import "github.com/alien4cloud/alien4cloud-go-client/alien4cloud"       // with go modules disabled
 
 Then you could create a client and use the different services exposed by the Alien4Cloud API:
