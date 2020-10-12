@@ -46,6 +46,35 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 	return res.Data.Data, res.Data.FacetedSearchResult, errors.Wrapf(err, "Cannot response on get executions for deployment %q", deploymentID)
 }
 
+// GetExecution returns details of a given execution
+// Returns an error if no execution with such ID was found
+func (d *deploymentService) GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error) {
+	startIndex := 0
+	size := 50
+	var exec Execution
+	var err error
+	for {
+		execs, res, err := d.GetExecutions(ctx, deploymentID, workflowName, startIndex, size)
+		if err != nil {
+			break
+		}
+		for _, e := range execs {
+			if e.ID == executionID {
+				exec = e
+				return exec, err
+			}
+		}
+		// Execution not found in this range
+		if res.TotalResults < (size + startIndex) {
+			return exec, errors.Errorf("Found no execution with ID %s for deployment %s workflow %s",
+				executionID, deploymentID, workflowName)
+		}
+		startIndex = startIndex + size
+		size = res.TotalResults
+	}
+	return exec, err
+}
+
 func (d *deploymentService) CancelExecution(ctx context.Context, environmentID string, executionID string) error {
 
 	cancelExecBody, err := json.Marshal(

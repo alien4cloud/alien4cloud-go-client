@@ -73,6 +73,10 @@ type DeploymentService interface {
 	// - query allows to search a specific execution but may be empty
 	// - from and size allows to paginate results
 	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]Execution, FacetedSearchResult, error)
+	// GetExecution returns details of a given execution
+	// Returns an error if no execution with such ID was found
+	GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error)
+
 	// Cancels execution for given environmentID and executionID
 	CancelExecution(ctx context.Context, environmentID string, executionID string) error
 }
@@ -592,22 +596,22 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 	// Let a4c time to register execution (500ms is not enough)
 	<-time.After(time.Second)
 	// now monitor workflow execution
+	deploymentID, err := d.GetCurrentDeploymentID(ctx, a4cAppID, a4cEnvID)
+	if err != nil {
+		return "", errors.Wrapf(err, "Unable to get deployment ID for application %s env %s", a4cAppID, a4cEnvID)
+	}
+
 	go func() {
 		for {
-			executions, _, err := d.GetExecutions(ctx, "", res.Data, 0, 1)
+			exec, err := d.GetExecution(ctx, deploymentID, workflowName, res.Data)
 			if err != nil {
 				callback(nil, err)
 				return
 			}
-			if len(executions) != 1 {
-				callback(nil,
-					errors.Errorf("expecting 1 execution on monitoring execution id %q for workflow %q on application %q, environment %q, but actually got %d executions", res.Data, workflowName, a4cAppID, a4cEnvID, len(executions)))
-				return
-			}
 
-			switch executions[0].Status {
+			switch exec.Status {
 			case "SUCCEEDED", "CANCELLED", "FAILED":
-				callback(&executions[0], nil)
+				callback(&exec, nil)
 				return
 			default:
 			}
