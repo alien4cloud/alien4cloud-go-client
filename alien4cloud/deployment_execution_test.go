@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/assert"
 )
 
@@ -132,9 +131,9 @@ func Test_deploymentService_GetExecution(t *testing.T) {
 		assert.Assert(t, "" != r.URL.Query().Get("size"))
 
 		maxSize, err := strconv.Atoi(r.URL.Query().Get("size"))
-		require.NoError(t, err)
+		assert.NilError(t, err)
 		fromIndex, err := strconv.Atoi(r.URL.Query().Get("from"))
-		require.NoError(t, err)
+		assert.NilError(t, err)
 		var execs []Execution
 		var nbResults int
 		if fromIndex == 0 {
