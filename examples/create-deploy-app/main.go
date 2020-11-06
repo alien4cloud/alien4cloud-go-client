@@ -111,7 +111,7 @@ func main() {
 			log.Panic(err)
 		}
 
-		deploymentStatus = strings.ToLower(status)
+		deploymentStatus = strings.ToUpper(status)
 		done = (deploymentStatus == alien4cloud.ApplicationDeployed || deploymentStatus == alien4cloud.ApplicationError)
 		if done {
 			fmt.Printf("\nDeployment status: %s\n", status)
