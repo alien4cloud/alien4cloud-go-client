@@ -1,4 +1,4 @@
-# Deploy an already create application on a location
+# Deploy an already created application on a location
 
 This example shows how the Alien4Cloud go client can be used to:
 
