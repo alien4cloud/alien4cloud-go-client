@@ -11,6 +11,7 @@ See examples describing how to:
   * [get available inputs of a topology template](examples/get-input-parameters/README.md)
 * Application Management:
   * [create and deploy an application](examples/create-deploy-app/README.md)
+  * [deploy an already created application](examples/deploy-app/README.md)
   * [get information on a given application using its ID](examples/get-application-by-id/README.md)
   * [set application inputs](examples/set-input-parameters/README.md)
   * [get inputs used for a given deployment](examples/get-deployment-input-parameters/README.md)

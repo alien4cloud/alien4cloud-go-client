@@ -26,16 +26,15 @@ import (
 )
 
 // Command arguments
-var url, user, password, appName string
-var delete bool
+var url, user, password, appName, locationName string
 
 func init() {
 	// Initialize command arguments
 	flag.StringVar(&url, "url", "http://localhost:8088", "Alien4Cloud URL")
 	flag.StringVar(&user, "user", "admin", "User")
 	flag.StringVar(&password, "password", "changeme", "Password")
-	flag.StringVar(&appName, "app", "", "Name of the application to undeploy")
-	flag.BoolVar(&delete, "delete", false, "Delete the application after undeployment")
+	flag.StringVar(&appName, "app", "", "Name of the application")
+	flag.StringVar(&locationName, "location", "", "Name of the location where to deploy the application")
 }
 
 func main() {
@@ -43,9 +42,9 @@ func main() {
 	// Parsing command arguments
 	flag.Parse()
 
-	// Check required parameter
+	// Check required parameters
 	if appName == "" {
-		log.Panic("Mandatory argument 'app' missing (Name of the application to delete)")
+		log.Panic("Mandatory argument 'app' missing (Name of the application)")
 	}
 
 	client, err := alien4cloud.NewClient(url, user, password, "", true)
@@ -67,14 +66,14 @@ func main() {
 		log.Panic(err)
 	}
 
-	err = client.DeploymentService().UndeployApplication(ctx, appName, envID)
+	err = client.DeploymentService().DeployApplication(ctx, appName, envID, locationName)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	// Wait for the end of undeployment
+	// Wait for the end of deployment
 	done := false
-	log.Printf("Waiting for the end of undeployment...")
+	log.Printf("Waiting for the end of deployment...")
 	var filters alien4cloud.LogFilter
 	var deploymentStatus string
 	logIndex := 0
@@ -103,25 +102,36 @@ func main() {
 
 		status, err := client.DeploymentService().GetDeploymentStatus(ctx, appName, envID)
 		if err != nil {
-			deploymentStatus = alien4cloud.ApplicationUndeployed
-		} else {
-			deploymentStatus = strings.ToUpper(status)
+			log.Panic(err)
 		}
 
-		done = (deploymentStatus == alien4cloud.ApplicationUndeployed || deploymentStatus == alien4cloud.ApplicationError)
+		deploymentStatus = strings.ToUpper(status)
+		done = (deploymentStatus == alien4cloud.ApplicationDeployed || deploymentStatus == alien4cloud.ApplicationError)
 		if done {
-			fmt.Printf("\nDeployment status: %s\n", deploymentStatus)
+			fmt.Printf("\nDeployment status: %s\n", status)
 			break
 		}
 	}
 
-	if delete && deploymentStatus == alien4cloud.ApplicationUndeployed {
-		// Now that the application is undeployed, deleting it
-		err = client.ApplicationService().DeleteApplication(ctx, appName)
+	// On succesful deployment print output variable if any
+	if deploymentStatus == alien4cloud.ApplicationDeployed {
+		nodeAttrOutputs, err := client.DeploymentService().GetOutputAttributes(ctx, appName, envID)
 		if err != nil {
 			log.Panic(err)
 		}
 
-		fmt.Printf("Application %s deleted\n", appName)
+		if len(nodeAttrOutputs) > 0 {
+			fmt.Println("\nOutputs:")
+			for nodeName, attrs := range nodeAttrOutputs {
+				attrValues, err := client.DeploymentService().GetAttributesValue(ctx, appName, envID, nodeName, attrs)
+				if err != nil {
+					log.Panic(err)
+				}
+				fmt.Printf(" - %s\n", nodeName)
+				for k, v := range attrValues {
+					fmt.Printf("  * %s: %s\n", k, v)
+				}
+			}
+		}
 	}
 }

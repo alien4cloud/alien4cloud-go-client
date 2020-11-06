@@ -32,7 +32,7 @@ func init() {
 	flag.StringVar(&url, "url", "http://localhost:8088", "Alien4Cloud URL")
 	flag.StringVar(&user, "user", "admin", "User")
 	flag.StringVar(&password, "password", "changeme", "Password")
-	flag.StringVar(&appName, "app", "", "Name of the application to create")
+	flag.StringVar(&appName, "app", "", "Name of the application")
 	flag.StringVar(&workflow, "workflow", "", "Name of the workflow to run")
 	flag.BoolVar(&showEvents, "events", false, "Show events")
 }
