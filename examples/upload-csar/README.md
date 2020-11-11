@@ -1,6 +1,6 @@
-# Run a workflow
+# Upload a CSAR (Cloud Service ARchive)
 
-This example shows how the Alien4Cloud go client can be used to upload a CSAR to Alien4Cloud catalog.
+This example shows how the Alien4Cloud go client can be used to upload a CSAR (Cloud Service ARchive - zip file containing TOSCA types and templates definitions) to Alien4Cloud catalog.
 
 ## Running this example
 
