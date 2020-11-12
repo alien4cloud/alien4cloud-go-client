@@ -27,6 +27,7 @@ import (
 
 // Command arguments
 var url, user, password, appName, appTemplate, locationName string
+var deploy bool
 
 func init() {
 	// Initialize command arguments
@@ -35,7 +36,9 @@ func init() {
 	flag.StringVar(&password, "password", "changeme", "Password")
 	flag.StringVar(&appName, "app", "", "Name of the application to create")
 	flag.StringVar(&appTemplate, "template", "", "Name of the topology template to use")
+	flag.BoolVar(&deploy, "deploy", false, "Deploy the application")
 	flag.StringVar(&locationName, "location", "", "Name of the location where to deploy the application")
+
 }
 
 func main() {
@@ -70,6 +73,11 @@ func main() {
 		log.Panic(err)
 	}
 
+	if !deploy {
+		log.Printf("Application created")
+		return
+	}
+
 	envID, err := client.ApplicationService().GetEnvironmentIDbyName(ctx, appID, alien4cloud.DefaultEnvironmentName)
 	if err != nil {
 		log.Panic(err)
@@ -90,6 +98,9 @@ func main() {
 		time.Sleep(5 * time.Second)
 
 		a4cLogs, nbLogs, err := client.LogService().GetLogsOfApplication(ctx, appID, envID, filters, logIndex)
+		if err != nil {
+			log.Panic(err)
+		}
 		if nbLogs > 0 {
 			logIndex = logIndex + nbLogs
 			for idx := 0; idx < nbLogs; idx++ {

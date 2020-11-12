@@ -3,9 +3,9 @@
 This example shows how the Alien4Cloud go client can be used to:
 
 * create an application from a template in Alien4Cloud catalog
-* deploy this application on a given location (if no location is specified, the first suited location is selected)
-* while the application is being deployed, display deployment logs
-* once done, display application components variables, if any
+* optionally, deploy this application on a given location (if no location is specified, the first suited location is selected)
+  * while the application is being deployed, display deployment logs
+  * once done, display application components variables, if any
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ Build this example:
 
 ```bash
 cd examples/create-deploy-app
-go build -o deploy.test
+go build -o create.test
 ```
 
 Now, run this example providing in arguments:
@@ -36,15 +36,17 @@ Now, run this example providing in arguments:
 * credentials of a user who has the **Application Manager** role
 * the name of the application that will be create
 * the application template in ALien4Cloud catalog that will be used
+* specify you want to deploy the crrated applicatiob
 * optionally, the name of the location where you want to deploy the application
   (by default, the first location suited for the deployment will be selected)
 
 ```bash
-./deploy.test -url https://1.2.3.4:8088 \
+./create.test -url https://1.2.3.4:8088 \
               -user myuser \
               -password mypasswd \
               -app myapp \
-              -template org.ystia.samples.topologies.welcome_basic
+              -template org.ystia.samples.topologies.welcome_basic \
+              -deploy
 ```
 
 This will create the application, deploy it on a location, print deployment logs,
