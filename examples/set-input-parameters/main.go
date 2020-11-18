@@ -16,7 +16,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"time"
 
@@ -24,7 +26,7 @@ import (
 )
 
 // Command arguments
-var url, user, password, appName, propName, propValue, artifactName, artifactFilePath string
+var url, user, password, appName, propName, propValue, propValueFile, propValueType, artifactName, artifactFilePath string
 
 func init() {
 	// Initialize command arguments
@@ -34,6 +36,8 @@ func init() {
 	flag.StringVar(&appName, "app", "", "Name of the application to create")
 	flag.StringVar(&propName, "property", "", "Name of the input property to set")
 	flag.StringVar(&propValue, "value", "", "Value of the input property to set")
+	flag.StringVar(&propValueFile, "value_file", "", "Path a a file containing the property value")
+	flag.StringVar(&propValueType, "value_type", "string", "Value type: string, map or array")
 	flag.StringVar(&artifactName, "artifact", "", "Name of the input artifact to set")
 	flag.StringVar(&artifactFilePath, "file", "", "Path of the input artifact file")
 }
@@ -80,9 +84,37 @@ func main() {
 			log.Panicf("No such input property %s defined in application", propName)
 		}
 
+		if propValueFile != "" {
+			byteVal, err := ioutil.ReadFile(propValueFile)
+			if err != nil {
+				log.Panic(err)
+			}
+			propValue = string(byteVal)
+		}
+		var typedValue interface{}
+		switch propValueType {
+		case "string":
+			typedValue = propValue
+		case "array":
+			var arrayVal []string
+			err := json.Unmarshal([]byte(propValue), &arrayVal)
+			if err != nil {
+				log.Panic(err)
+			}
+			typedValue = arrayVal
+		case "map":
+			var mapVal map[string]string
+			err := json.Unmarshal([]byte(propValue), &mapVal)
+			if err != nil {
+				log.Panic(err)
+			}
+			typedValue = mapVal
+		default:
+			log.Panicf("Expected value_type to be string, array or map. Got: %s", propValueType)
+		}
 		updateRequest := alien4cloud.UpdateDeploymentTopologyRequest{
 			InputProperties: map[string]interface{}{
-				propName: propValue,
+				propName: typedValue,
 			},
 		}
 
