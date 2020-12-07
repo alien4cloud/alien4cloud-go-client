@@ -1,4 +1,4 @@
-# Run a workflow
+# Get a workflow status
 
 This example shows how the Alien4Cloud go client can be used to get the status of
 a workflow execution.
