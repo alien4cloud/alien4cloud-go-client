@@ -569,11 +569,20 @@ func (d *deploymentService) getInstanceAttributesValue(ctx context.Context, appl
 // Runs a workflow asynchronously, results will be notified using the ExecutionCallback function.
 // Cancelling the context cancels the function that monitor the execution
 func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error) {
+	type InputData struct {
+		Inputs map[string]interface{} `json:"inputs"`
+	}
+	var inputData InputData
+	body, err := json.Marshal(inputData)
+	if err != nil {
+		return "", errors.Wrapf(err, "Cannot marshal body request %v", inputData)
+	}
+
 	request, err := d.client.NewRequest(
 		ctx,
 		"POST",
 		fmt.Sprintf("%s/applications/%s/environments/%s/workflows/%s", a4CRestAPIPrefix, a4cAppID, a4cEnvID, workflowName),
-		nil,
+		bytes.NewReader(body),
 	)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to run workflow %q on application %q, environment %q", workflowName, a4cAppID, a4cEnvID)
