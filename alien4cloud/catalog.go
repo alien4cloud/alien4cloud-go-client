@@ -3,6 +3,7 @@ package alien4cloud
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -24,7 +25,33 @@ type CatalogService interface {
 	// or informative errors that could be ignored. This can be checked by type casting into a ParsingErr
 	// and calling HasCriticalErrors() function.
 	UploadCSAR(ctx context.Context, csar io.Reader, workspace string) (csarDefinition CSAR, err error)
+
+	// GetComplexTOSCAType gets the description of a complex TOSCA type
+	GetComplexTOSCAType(ctx context.Context, request ComplexToscaTypeDescriptorRequest) (map[string]interface{}, error)
 }
+
+const (
+	// TYPE_DESCRIPTION_CONTENT_TYPE_KEY is a key in a map returned by GetComplexTOSCAType()
+	// providing details of a property definition of type array or map
+	TYPE_DESCRIPTION_CONTENT_TYPE_KEY = "_contentType"
+	// TYPE_DESCRIPTION_TYPE_KEY is a key in a map returned by GetComplexTOSCAType()
+	// providing the type of a property (complex, tosca, array, map)
+	TYPE_DESCRIPTION_TYPE_KEY = "_type"
+	// TYPE_DESCRIPTION_PROPERTY_TYPE_KEY is a key in a map returned by GetComplexTOSCAType()
+	// providing details on a complex type
+	TYPE_DESCRIPTION_PROPERTY_TYPE_KEY = "_propertyType"
+	// TYPE_DESCRIPTION_TOSCA_DEFINITION_KEY is a key in a map returned by GetComplexTOSCAType()
+	// providing details on a tosca type
+	TYPE_DESCRIPTION_TOSCA_DEFINITION_KEY = "_definition"
+	// TYPE_DESCRIPTION_TOSCA_TYPE is the type of a non-complex property in a map returned by GetComplexTOSCAType()
+	TYPE_DESCRIPTION_TOSCA_TYPE = "tosca"
+	// TYPE_DESCRIPTION_COMPLEX_TYPE is the type of a complex property in a map a map returned by GetComplexTOSCAType()
+	TYPE_DESCRIPTION_COMPLEX_TYPE = "complex"
+	// TYPE_DESCRIPTION_ARRAY_TYPE is the type of aa array property in a map returned by GetComplexTOSCAType()
+	TYPE_DESCRIPTION_ARRAY_TYPE = "array"
+	// TYPE_DESCRIPTION_MAP_TYPE is the type of a map property in a map returned by GetComplexTOSCAType()
+	TYPE_DESCRIPTION_MAP_TYPE = "map"
+)
 
 type catalogService struct {
 	client *a4cClient
@@ -128,4 +155,32 @@ func (cs *catalogService) UploadCSAR(ctx context.Context, csar io.Reader, worksp
 		err = &parsingErr{res.Data.Errors}
 	}
 	return res.Data.CSAR, err
+}
+
+// GetComplexTOSCAType gets the description of a complex TOSCA type
+func (cs *catalogService) GetComplexTOSCAType(ctx context.Context, request ComplexToscaTypeDescriptorRequest) (map[string]interface{}, error) {
+	jsonReq, err := json.Marshal(request)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot marshal complex TOSCA type request %+v", request)
+	}
+
+	req, err := cs.client.NewRequest(ctx,
+		"POST",
+		fmt.Sprintf("%s/formdescriptor/complex-tosca-type", a4CRestAPIPrefix),
+		bytes.NewReader(jsonReq))
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot create request to get TOSCA type description %v", request)
+	}
+
+	var res map[string]interface{}
+
+	response, err := cs.client.Do(req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot send request to get TOSCA type description %v", request)
+	}
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to read response for TOSCA type description %s", string(jsonReq))
+	}
+	return res, err
 }

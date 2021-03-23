@@ -314,19 +314,20 @@ type PropertyValue struct {
 
 // EntrySchema holds the definition of the type of an element in a list
 type EntrySchema struct {
-	Type        string `json:"type"`
+	Type        string `json:"type,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
 // PropertyDefinition holds the definition of a Topology input property
 type PropertyDefinition struct {
-	Type         string        `json:"type"`
-	EntrySchema  EntrySchema   `json:"entrySchema,omitempty"`
-	Required     bool          `json:"required,omitempty"`
-	DefaultValue PropertyValue `json:"default,omitempty"`
-	Description  string        `json:"description,omitempty"`
-	SuggestionID string        `json:"suggestionId,omitempty"`
-	Password     bool          `json:"password,omitempty"`
+	Type         string         `json:"type"`
+	EntrySchema  EntrySchema    `json:"entrySchema,omitempty"`
+	Required     bool           `json:"required,omitempty"`
+	DefaultValue *PropertyValue `json:"default,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	SuggestionID string         `json:"suggestionId,omitempty"`
+	Password     bool           `json:"password,omitempty"`
+	Definition   bool           `json:"definition,omitempty"`
 }
 
 // DeploymentArtifact holds properties of an artifact (file) input definition in topology
@@ -374,16 +375,28 @@ type Workflow struct {
 	Steps       map[string]WorkflowStep       `json:"steps,omitempty"`
 }
 
+type PropertyNameDefinition struct {
+	Key   string             `json:"key,omitempty"`
+	Value PropertyDefinition `json:"value,omitempty"`
+}
+
+type DataType struct {
+	DerivedFrom []string                 `json:"derivedFrom,omitempty"`
+	Properties  []PropertyNameDefinition `json:"properties,omitempty"`
+}
+
 // Topology is the representation a topology template
 type Topology struct {
 	Data struct {
 		NodeTypes         map[string]nodeType         `json:"nodeTypes"`
 		RelationshipTypes map[string]relationshipType `json:"relationshipTypes"`
 		CapabilityTypes   map[string]capabilityType   `json:"capabilityTypes"`
+		DataTypes         map[string]DataType         `json:"dataTypes"`
 		Topology          struct {
 			ArchiveName             string                        `json:"archiveName"`
 			ArchiveVersion          string                        `json:"archiveVersion"`
 			Description             string                        `json:"description,omitempty"`
+			Dependencies            []CSARDependency              `json:"dependencies,omitempty"`
 			NodeTemplates           map[string]NodeTemplate       `json:"nodeTemplates"`
 			Inputs                  map[string]PropertyDefinition `json:"inputs,omitempty"`
 			InputArtifacts          map[string]DeploymentArtifact `json:"inputArtifacts,omitempty"`
@@ -392,6 +405,12 @@ type Topology struct {
 			Workflows               map[string]Workflow           `json:"workflows,omitempty"`
 		} `json:"topology"`
 	} `json:"data"`
+}
+
+// ComplexToscaTypeDescriptorRequest holds a request to get details of a complex TOSCA type
+type ComplexToscaTypeDescriptorRequest struct {
+	Dependencies       []CSARDependency   `json:"dependencies,omitempty"`
+	PropertyDefinition PropertyDefinition `json:"propertyDefinition,omitempty"`
 }
 
 // UpdateDeploymentTopologyRequest holds a request to update inputs of a deployment
