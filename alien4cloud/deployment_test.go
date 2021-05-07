@@ -725,17 +725,17 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":"%s"}`, matches[1])))
 			return
-		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "wf":
+		case regexp.MustCompile(`.*/executions/execID`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"execID","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"wf","workflowName":"wf","displayWorkflowName":"wf","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"id":"execID","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"wf","workflowName":"wf","displayWorkflowName":"wf","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}}`))
 			return
-		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "execCancel":
+		case regexp.MustCompile(`.*/executions/execCancel`).Match([]byte(r.URL.Path)) && r.URL.Query().Get("query") == "execCancel":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"execCancel","workflowName":"execCancel","displayWorkflowName":"execCancel","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"execCancel","workflowName":"execCancel","displayWorkflowName":"execCancel","startDate":1578949107377,"endDate":1578949125749,"status":"RUNNING","hasFailedTasks":false}}`))
 			return
-		case regexp.MustCompile(`.*/executions/search`).Match([]byte(r.URL.Path)):
+		case regexp.MustCompile(`.*/executions/.*`).Match([]byte(r.URL.Path)):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"data":{"types":["execution"],"data":[{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":1,"to":1,"facets":null},"error":null}`))
+			_, _ = w.Write([]byte(`{"data":{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}}`))
 			return
 		}
 
@@ -760,7 +760,7 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 			&Execution{ID: "execID", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "wf", WorkflowName: "wf", DisplayWorkflowName: "wf", Status: "SUCCEEDED", HasFailedTasks: false},
 			false,
 		},
-		{"BadExecID", args{context.Background(), "BadExecID", "env", "wf", 5 * time.Minute}, nil, true},
+		{"BadExecID", args{context.Background(), "error", "env", "wf", 5 * time.Minute}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

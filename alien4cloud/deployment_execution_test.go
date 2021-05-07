@@ -3,11 +3,10 @@ package alien4cloud
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"regexp"
-	"strconv"
 	"testing"
 	"time"
 
@@ -121,59 +120,30 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 	assert.DeepEqual(t, got1, FacetedSearchResult{})
 }
 
-func Test_deploymentService_GetExecution(t *testing.T) {
+func Test_deploymentService_GetExecutionByID(t *testing.T) {
 	closeCh := make(chan struct{})
 	defer close(closeCh)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		assert.Assert(t, "" != r.URL.Query().Get("deploymentId"))
-		assert.Assert(t, "" != r.URL.Query().Get("from"))
-		assert.Assert(t, "" != r.URL.Query().Get("size"))
+		execID := path.Base(r.URL.Path)
 
-		maxSize, err := strconv.Atoi(r.URL.Query().Get("size"))
-		assert.NilError(t, err)
-		fromIndex, err := strconv.Atoi(r.URL.Query().Get("from"))
-		assert.NilError(t, err)
-		var execs []Execution
-		var nbResults int
-		if fromIndex == 0 {
-			if maxSize > 52 {
-				nbResults = maxSize
-			} else {
-				nbResults = maxSize
-			}
-		} else {
-			nbResults = 2
-		}
-		execs = make([]Execution, nbResults)
-		for i := 0; i < nbResults; i++ {
-			execs[i] = Execution{
-				ID:                  fmt.Sprintf("%s%d", r.URL.Query().Get("deploymentId"), fromIndex+i),
-				DeploymentID:        r.URL.Query().Get("deploymentId"),
-				WorkflowID:          "wf",
-				WorkflowName:        "wf",
-				DisplayWorkflowName: "wf",
-				Status:              "SUCCEEDED",
-				HasFailedTasks:      false,
-			}
+		if execID == "NotFound" {
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
 
 		var resExec struct {
-			Data struct {
-				Types         []string    `json:"types"`
-				Data          []Execution `json:"data"`
-				QueryDuration int         `json:"queryDuration"`
-				TotalResults  int         `json:"totalResults"`
-				From          int         `json:"from"`
-				To            int         `json:"to"`
-			} `json:"data"`
+			Execution `json:"data"`
 		}
-		resExec.Data.Types = []string{"execution"}
-		resExec.Data.Data = execs
-		resExec.Data.QueryDuration = 1
-		resExec.Data.TotalResults = 52
-		resExec.Data.From = fromIndex
-		resExec.Data.To = fromIndex + nbResults - 1
+		resExec.Execution = Execution{
+			ID:                  execID,
+			DeploymentID:        "depID",
+			WorkflowID:          "wf",
+			WorkflowName:        "wf",
+			DisplayWorkflowName: "wf",
+			Status:              "SUCCEEDED",
+			HasFailedTasks:      false,
+		}
 
 		b, err := json.Marshal(&resExec)
 		if err != nil {
@@ -186,10 +156,8 @@ func Test_deploymentService_GetExecution(t *testing.T) {
 	}))
 
 	type args struct {
-		ctx          context.Context
-		deploymentID string
-		workflowName string
-		executionID  string
+		ctx         context.Context
+		executionID string
 	}
 	tests := []struct {
 		name    string
@@ -198,12 +166,12 @@ func Test_deploymentService_GetExecution(t *testing.T) {
 		wantErr bool
 	}{
 		{"success",
-			args{context.Background(), "depID", "wf", "depID51"},
+			args{context.Background(), "depID51"},
 			Execution{ID: "depID51", DeploymentID: "depID", WorkflowID: "wf", WorkflowName: "wf", DisplayWorkflowName: "wf", Status: "SUCCEEDED", HasFailedTasks: false},
 			false,
 		},
 		{"failure",
-			args{context.Background(), "depID", "wf", "noSuchDepID"},
+			args{context.Background(), "NotFound"},
 			Execution{},
 			true,
 		},
@@ -213,9 +181,23 @@ func Test_deploymentService_GetExecution(t *testing.T) {
 			d := &deploymentService{
 				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
 			}
-			got, err := d.GetExecution(tt.args.ctx, tt.args.deploymentID, tt.args.workflowName, tt.args.executionID)
+			got, err := d.GetExecutionByID(tt.args.ctx, tt.args.executionID)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("deploymentService.GetExecutions() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("deploymentService.GetExecutionByID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.DeepEqual(t, got, tt.want)
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			got, err := d.GetExecution(tt.args.ctx, "", "", tt.args.executionID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetExecution() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.DeepEqual(t, got, tt.want)
