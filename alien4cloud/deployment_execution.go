@@ -48,31 +48,36 @@ func (d *deploymentService) GetExecutions(ctx context.Context, deploymentID, que
 
 // GetExecution returns details of a given execution
 // Returns an error if no execution with such ID was found
-func (d *deploymentService) GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error) {
-	startIndex := 0
-	size := 50
-	var exec Execution
-	var err error
-	for {
-		execs, res, err := d.GetExecutions(ctx, deploymentID, workflowName, startIndex, size)
-		if err != nil {
-			break
-		}
-		for _, e := range execs {
-			if e.ID == executionID {
-				exec = e
-				return exec, err
-			}
-		}
-		// Execution not found in this range
-		if res.TotalResults < (size + startIndex) {
-			return exec, errors.Errorf("Found no execution with ID %s for deployment %s workflow %s",
-				executionID, deploymentID, workflowName)
-		}
-		startIndex = startIndex + size
-		size = res.TotalResults
+func (d *deploymentService) GetExecutionByID(ctx context.Context, executionID string) (Execution, error) {
+	u := fmt.Sprintf("%s/executions/%s", a4CRestAPIPrefix, executionID)
+
+	request, err := d.client.NewRequest(ctx,
+		"GET",
+		u,
+		nil)
+	if err != nil {
+		return Execution{}, errors.Wrapf(err, "Failed to get execution %q", executionID)
 	}
-	return exec, err
+
+	response, err := d.client.Do(request)
+	if err != nil {
+		return Execution{}, errors.Wrapf(err, "Cannot send request to get execution %q", executionID)
+	}
+
+	var res struct {
+		Execution `json:"data"`
+	}
+
+	err = ReadA4CResponse(response, &res)
+	return res.Execution, err
+}
+
+// GetExecution returns details of a given execution
+// Returns an error if no execution with such ID was found
+//
+// Deprecated: Prefer GetExecutionByID instead
+func (d *deploymentService) GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error) {
+	return d.GetExecutionByID(ctx, executionID)
 }
 
 func (d *deploymentService) CancelExecution(ctx context.Context, environmentID string, executionID string) error {

@@ -73,8 +73,14 @@ type DeploymentService interface {
 	// - query allows to search a specific execution but may be empty
 	// - from and size allows to paginate results
 	GetExecutions(ctx context.Context, deploymentID, query string, from, size int) ([]Execution, FacetedSearchResult, error)
+
+	// GetExecutionByID returns details of a given execution
+	// Returns an error if no execution with such ID was found
+	GetExecutionByID(ctx context.Context, executionID string) (Execution, error)
 	// GetExecution returns details of a given execution
 	// Returns an error if no execution with such ID was found
+	//
+	// Deprecated: Prefer GetExecutionByID instead
 	GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error)
 
 	// Cancels execution for given environmentID and executionID
@@ -605,14 +611,9 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 	// Let a4c time to register execution (500ms is not enough)
 	<-time.After(time.Second)
 	// now monitor workflow execution
-	deploymentID, err := d.GetCurrentDeploymentID(ctx, a4cAppID, a4cEnvID)
-	if err != nil {
-		return "", errors.Wrapf(err, "Unable to get deployment ID for application %s env %s", a4cAppID, a4cEnvID)
-	}
-
 	go func() {
 		for {
-			exec, err := d.GetExecution(ctx, deploymentID, workflowName, res.Data)
+			exec, err := d.GetExecutionByID(ctx, res.Data)
 			if err != nil {
 				callback(nil, err)
 				return
