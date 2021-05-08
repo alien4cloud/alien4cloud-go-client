@@ -79,6 +79,7 @@ type DeploymentService interface {
 	GetExecutionByID(ctx context.Context, executionID string) (Execution, error)
 	// GetExecution returns details of a given execution
 	// Returns an error if no execution with such ID was found
+	//
 	// Deprecated: Prefer GetExecutionByID instead
 	GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error)
 

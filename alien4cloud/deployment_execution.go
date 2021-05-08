@@ -74,6 +74,7 @@ func (d *deploymentService) GetExecutionByID(ctx context.Context, executionID st
 
 // GetExecution returns details of a given execution
 // Returns an error if no execution with such ID was found
+//
 // Deprecated: Prefer GetExecutionByID instead
 func (d *deploymentService) GetExecution(ctx context.Context, deploymentID, workflowName, executionID string) (Execution, error) {
 	return d.GetExecutionByID(ctx, executionID)
