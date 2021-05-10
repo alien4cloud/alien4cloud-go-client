@@ -629,6 +629,8 @@ type Execution struct {
 	DisplayWorkflowName string `json:"displayWorkflowName"`
 	Status              string `json:"status"`
 	HasFailedTasks      bool   `json:"hasFailedTasks"`
+	StartDate           Time   `json:"startDate,omitempty"`
+	EndDate             Time   `json:"endDate,omitempty"`
 }
 
 // Time represents the timestamp field from A4C
