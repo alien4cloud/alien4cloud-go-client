@@ -13,6 +13,14 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func mustParseTime(t *testing.T, timeStr string) Time {
+
+	r, err := time.Parse("2006-01-02 15:04:05.000 -0700 MST", timeStr)
+	assert.NilError(t, err, "failed to parse time")
+
+	return Time{r}
+}
+
 func Test_deploymentService_GetExecutions(t *testing.T) {
 	closeCh := make(chan struct{})
 	defer close(closeCh)
@@ -41,7 +49,7 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 				return
 			case "multi":
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"data":{"types":["execution","execution","execution"],"data":[{"id":"d9f63781-5245-4cd0-a24c-b83d4c4842f1","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"startWebServer","workflowName":"startWebServer","displayWorkflowName":"startWebServer","startDate":1578951354540,"endDate":1578951378035,"status":"SUCCEEDED","hasFailedTasks":false},{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false},{"id":"e8cbb5bd-5f85-408e-9190-caee179d0581","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"install","workflowName":"install","displayWorkflowName":"install","startDate":1578933372461,"endDate":1578933443757,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":0,"to":2,"facets":null},"error":null}`))
+				_, _ = w.Write([]byte(`{"data":{"types":["execution","execution","execution"],"data":[{"id":"d9f63781-5245-4cd0-a24c-b83d4c4842f1","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"startWebServer","workflowName":"startWebServer","displayWorkflowName":"startWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false},{"id":"7459ca00-f98f-47f1-a7e8-4d779d65253a","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"stopWebServer","workflowName":"stopWebServer","displayWorkflowName":"stopWebServer","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false},{"id":"e8cbb5bd-5f85-408e-9190-caee179d0581","deploymentId":"4186a188-24a4-4910-9d7b-207ca09f98e3","workflowId":"install","workflowName":"install","displayWorkflowName":"install","startDate":1578949107377,"endDate":1578949125749,"status":"SUCCEEDED","hasFailedTasks":false}],"queryDuration":1,"totalResults":3,"from":0,"to":2,"facets":null},"error":null}`))
 				return
 			case "error":
 				w.WriteHeader(http.StatusNotFound)
@@ -71,23 +79,23 @@ func Test_deploymentService_GetExecutions(t *testing.T) {
 	}{
 		{"normal", args{context.Background(), "normal", "", 1, 1},
 			[]Execution{
-				Execution{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
+				{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
 			},
 			FacetedSearchResult{TotalResults: 3, From: 1, To: 1},
 			false,
 		},
 		{"query", args{context.Background(), "query", "7459ca00-f98f-47f1-a7e8-4d779d65253a", 0, 1},
 			[]Execution{
-				Execution{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
+				{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
 			},
 			FacetedSearchResult{TotalResults: 1, From: 0, To: 0},
 			false,
 		},
 		{"multi", args{context.Background(), "multi", "", 0, 10},
 			[]Execution{
-				Execution{ID: "d9f63781-5245-4cd0-a24c-b83d4c4842f1", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "startWebServer", WorkflowName: "startWebServer", DisplayWorkflowName: "startWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
-				Execution{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false},
-				Execution{ID: "e8cbb5bd-5f85-408e-9190-caee179d0581", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "install", WorkflowName: "install", DisplayWorkflowName: "install", Status: "SUCCEEDED", HasFailedTasks: false},
+				{ID: "d9f63781-5245-4cd0-a24c-b83d4c4842f1", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "startWebServer", WorkflowName: "startWebServer", DisplayWorkflowName: "startWebServer", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
+				{ID: "7459ca00-f98f-47f1-a7e8-4d779d65253a", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "stopWebServer", WorkflowName: "stopWebServer", DisplayWorkflowName: "stopWebServer", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
+				{ID: "e8cbb5bd-5f85-408e-9190-caee179d0581", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "install", WorkflowName: "install", DisplayWorkflowName: "install", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
 			},
 			FacetedSearchResult{TotalResults: 3, From: 0, To: 2},
 			false,
@@ -143,6 +151,8 @@ func Test_deploymentService_GetExecutionByID(t *testing.T) {
 			DisplayWorkflowName: "wf",
 			Status:              "SUCCEEDED",
 			HasFailedTasks:      false,
+			StartDate:           mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"),
+			EndDate:             mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET"),
 		}
 
 		b, err := json.Marshal(&resExec)
@@ -167,7 +177,7 @@ func Test_deploymentService_GetExecutionByID(t *testing.T) {
 	}{
 		{"success",
 			args{context.Background(), "depID51"},
-			Execution{ID: "depID51", DeploymentID: "depID", WorkflowID: "wf", WorkflowName: "wf", DisplayWorkflowName: "wf", Status: "SUCCEEDED", HasFailedTasks: false},
+			Execution{ID: "depID51", DeploymentID: "depID", WorkflowID: "wf", WorkflowName: "wf", DisplayWorkflowName: "wf", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
 			false,
 		},
 		{"failure",

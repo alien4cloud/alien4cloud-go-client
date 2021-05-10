@@ -757,7 +757,7 @@ func Test_deploymentService_RunWorkflow(t *testing.T) {
 		wantErr bool
 	}{
 		{"Normal", args{context.Background(), "app", "env", "wf", 5 * time.Minute},
-			&Execution{ID: "execID", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "wf", WorkflowName: "wf", DisplayWorkflowName: "wf", Status: "SUCCEEDED", HasFailedTasks: false},
+			&Execution{ID: "execID", DeploymentID: "4186a188-24a4-4910-9d7b-207ca09f98e3", WorkflowID: "wf", WorkflowName: "wf", DisplayWorkflowName: "wf", Status: "SUCCEEDED", HasFailedTasks: false, StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET")},
 			false,
 		},
 		{"BadExecID", args{context.Background(), "error", "env", "wf", 5 * time.Minute}, nil, true},
@@ -949,6 +949,8 @@ func Test_deploymentService_UploadDeploymentInputArtifact(t *testing.T) {
 }
 
 func Test_deploymentService_GetLastWorkflowExecution(t *testing.T) {
+	endDate := mustParseTime(t, "2021-05-10 17:18:41.608 +0200 CEST")
+	startDate := mustParseTime(t, "2021-05-10 16:18:41.608 +0200 CEST")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -978,7 +980,7 @@ func Test_deploymentService_GetLastWorkflowExecution(t *testing.T) {
 			wfExec := &struct {
 				Data WorkflowExecution `json:"data"`
 			}{
-				WorkflowExecution{Execution: Execution{ID: "1"}},
+				WorkflowExecution{Execution: Execution{ID: "1", StartDate: startDate, EndDate: endDate}},
 			}
 
 			b, err := json.Marshal(wfExec)
@@ -1008,7 +1010,7 @@ func Test_deploymentService_GetLastWorkflowExecution(t *testing.T) {
 		wantErr        bool
 		expectedWfExec *WorkflowExecution
 	}{
-		{"GetLastWorkflowExecutionOK", args{context.Background(), "normal", "envID", "node1", []string{"attr1", "attr3"}}, false, &WorkflowExecution{Execution: Execution{ID: "1"}}},
+		{"GetLastWorkflowExecutionOK", args{context.Background(), "normal", "envID", "node1", []string{"attr1", "attr3"}}, false, &WorkflowExecution{Execution: Execution{ID: "1", StartDate: startDate, EndDate: endDate}}},
 		{"GetLastWorkflowExecutionError", args{context.Background(), "error", "envID", "node1", nil}, true, nil},
 	}
 	for _, tt := range tests {
