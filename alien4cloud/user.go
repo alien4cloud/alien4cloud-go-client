@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . UserService
+
 // UserService is the interface to the service mamaging users and groups
 type UserService interface {
 	// CreateUser creates a user

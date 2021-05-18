@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . EventService
+
 // EventService is the interface to the service mamaging events
 type EventService interface {
 	// Returns a given number of events for a given deployed application from a given index

@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . LogService
+
 // LogService is the interface to the service mamaging logs
 type LogService interface {
 	// Returns the logs of the application and environment filtered

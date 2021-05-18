@@ -28,6 +28,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . DeploymentService
+
 // DeploymentService is the interface to the service managing deployments
 type DeploymentService interface {
 	// Gets matching locations where a given application can be deployed

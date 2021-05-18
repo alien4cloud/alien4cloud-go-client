@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . CatalogService
+
 // CatalogService is the interface to the service mamaging a4c catalog
 type CatalogService interface {
 	// UploadCSAR submits a Cloud Service ARchive to Alien4Cloud catalog

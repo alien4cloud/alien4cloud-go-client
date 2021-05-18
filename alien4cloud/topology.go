@@ -25,6 +25,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . TopologyService
+
 // TopologyService is the interface to the service mamaging topologies
 type TopologyService interface {
 	// Returns the topology ID on a given application and environment

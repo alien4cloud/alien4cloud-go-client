@@ -14,6 +14,8 @@
 
 package alien4cloud
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . Client
+
 import (
 	"context"
 	"crypto/tls"

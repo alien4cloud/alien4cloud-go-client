@@ -24,3 +24,5 @@ See examples describing how to:
   * [search for users](examples/search-users/README.md)
 * Operations for experts:
   * [call arbitrary API endpoint using raw requests](examples/raw-request/README.md)
+* Testing
+  * [use mocks to your application](examples/mocks/README.md)
