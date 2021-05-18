@@ -25,4 +25,4 @@ See examples describing how to:
 * Operations for experts:
   * [call arbitrary API endpoint using raw requests](examples/raw-request/README.md)
 * Testing
-  * [use mocks to your application](examples/mocks/README.md)
+  * [use mocks to test your application](examples/mocks/README.md)
