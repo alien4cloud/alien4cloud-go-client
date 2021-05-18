@@ -54,10 +54,6 @@ jobs:
         # Default: 'Commit from GitHub Actions (name of the workflow)'
         message: 'Generating mocks'
 
-        # The arguments for the `git rm` command (see the paragraph below for more info)
-        # Default: ''
-        remove: './a4cmocks/*.go'
-
         # Whether to use the --signoff option on `git commit` (only `true` and `false` are accepted)
         # Default: false
         signoff: true
