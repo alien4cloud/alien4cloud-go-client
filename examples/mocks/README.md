@@ -8,9 +8,9 @@ Mocks generation is directly performed by this library and you do not need to ta
 
 ## Package description
 
-This package contains a single function [`Deploy(alien4cloud.Client)`](op.go#9). This is a dummy function that mimic an application
+This package contains a single function [`Deploy(alien4cloud.Client)`](op.go#L9). This is a dummy function that mimic an application
 deployment. This is used to demonstrate how to use mocks during testing.
-This function is tested by [`TestDeploy(*testing.T)`](op_test.go) that illustrate how you could configure your mocks for testing an
+This function is tested by [`TestDeploy(*testing.T)`](op_test.go#L13) that illustrate how you could configure your mocks for testing an
 application deployment.
 
 This is not intended to be a tutorial on GoMock features. Please refer to its documentation for more details.
