@@ -1,0 +1,59 @@
+name: Generate Mocks
+
+on: [push]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  genmocks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup go
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1"
+
+    - name: Generate Mocks
+      run: |
+        set -euo pipefail
+        export GOBIN=/tmp/gobin
+        export PATH="${GOBIN}:${PATH}"
+        mkdir -p "${GOBIN}"
+        go env
+        go install github.com/golang/mock/mockgen
+        go generate ./...
+
+    - uses: EndBug/add-and-commit@v7
+      with:
+        # The arguments for the `git add` command (see the paragraph below for more info)
+        # Default: '.'
+        add: './a4cmocks/*.go'
+
+        # The name of the user that will be displayed as the author of the commit
+        # Default: depends on the default_author input
+        #author_name: YstiaBot
+
+        # The email of the user that will be displayed as the author of the commit
+        # Default: depends on the default_author input
+        #author_email: ystiabot@users.noreply.github.com
+
+
+        # Determines the way the action fills missing author name and email. Three options are available:
+        # - github_actor -> UserName <UserName@users.noreply.github.com>
+        # - user_info -> Your Display Name <your-actual@email.com>
+        # - github_actions -> github-actions <email associated with the github logo>
+        # Default:
+        default_author: github_actor
+
+        # The message for the commit
+        # Default: 'Commit from GitHub Actions (name of the workflow)'
+        message: 'Generating mocks'
+
+        # Whether to use the --signoff option on `git commit` (only `true` and `false` are accepted)
+        # Default: false
+        signoff: true

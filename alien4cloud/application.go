@@ -24,6 +24,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . ApplicationService
+
 // ApplicationService is the interface to the service managing Applications
 type ApplicationService interface {
 	// Creates an application from a template and return its ID

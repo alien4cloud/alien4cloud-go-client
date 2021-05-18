@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate mockgen -destination=../a4cmocks/${GOFILE} -package a4cmocks . OrchestratorService
+
 // OrchestratorService is the interface to the service mamaging orchestrators
 type OrchestratorService interface {
 	// Returns the Alien4Cloud locations for orchestratorID
