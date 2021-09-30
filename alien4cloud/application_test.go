@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -419,6 +420,7 @@ func Test_applicationService_GetApplicationsID(t *testing.T) {
 		number int
 	}{
 		{"ExistingApp", args{context.Background(), "existingApp"}, 1},
+		{"ListEmptyApp", args{context.Background(), "ListEmptyApp"}, 0},
 		{"UnknownApp", args{context.Background(), "unknownApp"}, 0},
 	}
 	for _, tt := range tests {
@@ -504,9 +506,14 @@ func newHTTPServerTestApplicationSearch(t *testing.T) *httptest.Server {
 			if err != nil {
 				t.Errorf("Failed to unmarshal request body %+v", r)
 			}
-			if strings.Contains(searchReq.Query, "existingApp") {
+			tagFilter := searchReq.Filters["tags.name"]
+
+			if strings.Contains(searchReq.Query, "existingApp") || (len(tagFilter) > 0 && tagFilter[0] == "tag1") {
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"data":{"types":["Application"],"data":[{"id":"existingApp"}],"totalResults":1}}`))
+				_, _ = w.Write([]byte(`{"data":{"types":["Application"],"data":[{"id":"existingApp","name":"existingApp","tags":[{"name":"tag1","value":"v1"},{"name":"tag2","value":"v2"}]}],"totalResults":1}}`))
+			} else if strings.Contains(searchReq.Query, "ListEmptyApp") {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"data":{"types":["Application"],"data":[],"totalResults":0}}`))
 			} else {
 				w.WriteHeader(http.StatusNotFound)
 				_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
@@ -517,4 +524,54 @@ func newHTTPServerTestApplicationSearch(t *testing.T) *httptest.Server {
 		// Should not go there
 		t.Errorf("Unexpected call for request %+v", r)
 	}))
+}
+
+func Test_applicationService_SearchApplications(t *testing.T) {
+
+	ts := newHTTPServerTestApplicationSearch(t)
+	defer ts.Close()
+	type args struct {
+		ctx           context.Context
+		searchRequest SearchRequest
+	}
+	existingApp := Application{
+		ID:   "existingApp",
+		Name: "existingApp",
+		Tags: []Tag{
+			{Key: "tag1", Value: "v1"},
+			{Key: "tag2", Value: "v2"},
+		},
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []Application
+		want1   int
+		wantErr bool
+	}{
+		{"ExistingApp", args{context.Background(), SearchRequest{Query: "existingApp"}}, []Application{existingApp}, 1, false},
+		{"FilterOnTags", args{context.Background(), SearchRequest{Filters: map[string][]string{"tags.name": {"tag1", "tag2"}}}}, []Application{existingApp}, 1, false},
+		{"ListEmptyApp", args{context.Background(), SearchRequest{Query: "ListEmptyApp"}}, []Application{}, 0, false},
+		{"UnknownApp", args{context.Background(), SearchRequest{Query: "dfds"}}, nil, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			got, got1, err := a.SearchApplications(tt.args.ctx, tt.args.searchRequest)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.SearchApplications() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("applicationService.SearchApplications() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("applicationService.SearchApplications() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
 }
