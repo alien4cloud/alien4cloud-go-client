@@ -195,9 +195,10 @@ type SimpleMark struct {
 
 // SearchRequest is the representation of a request to search objects such as topologies, orchestrators in the A4C catalog
 type SearchRequest struct {
-	Query string `json:"query,omitempty"`
-	From  int    `json:"from,omitempty"`
-	Size  int    `json:"size,omitempty"`
+	Query   string              `json:"query,omitempty"`
+	From    int                 `json:"from,omitempty"`
+	Size    int                 `json:"size,omitempty"`
+	Filters map[string][]string `json:"filters,omitempty"`
 }
 
 // logsSearchRequest is the representation of a request to search logs of an application in the A4C catalog

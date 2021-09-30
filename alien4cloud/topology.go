@@ -101,7 +101,7 @@ func (t *topologyService) GetTopologyID(ctx context.Context, appID string, envID
 // GetTopologyTemplateIDByName return the topology template ID for the given topologyName
 func (t *topologyService) GetTopologyTemplateIDByName(ctx context.Context, topologyName string) (string, error) {
 
-	toposSearchBody, err := json.Marshal(SearchRequest{topologyName, 0, 1})
+	toposSearchBody, err := json.Marshal(SearchRequest{topologyName, 0, 1, nil})
 	if err != nil {
 		return "", errors.Wrap(err, "Cannot marshal a SearchRequest structure")
 	}
