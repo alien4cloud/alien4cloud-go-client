@@ -275,6 +275,36 @@ func (mr *MockDeploymentServiceMockRecorder) RunWorkflowAsync(arg0, arg1, arg2, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunWorkflowAsync", reflect.TypeOf((*MockDeploymentService)(nil).RunWorkflowAsync), arg0, arg1, arg2, arg3, arg4)
 }
 
+// RunWorkflowAsyncWithParameters mocks base method.
+func (m *MockDeploymentService) RunWorkflowAsyncWithParameters(arg0 context.Context, arg1, arg2, arg3 string, arg4 map[string]interface{}, arg5 alien4cloud.ExecutionCallback) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunWorkflowAsyncWithParameters", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunWorkflowAsyncWithParameters indicates an expected call of RunWorkflowAsyncWithParameters.
+func (mr *MockDeploymentServiceMockRecorder) RunWorkflowAsyncWithParameters(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunWorkflowAsyncWithParameters", reflect.TypeOf((*MockDeploymentService)(nil).RunWorkflowAsyncWithParameters), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// RunWorkflowWithParameters mocks base method.
+func (m *MockDeploymentService) RunWorkflowWithParameters(arg0 context.Context, arg1, arg2, arg3 string, arg4 map[string]interface{}, arg5 time.Duration) (*alien4cloud.Execution, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunWorkflowWithParameters", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(*alien4cloud.Execution)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunWorkflowWithParameters indicates an expected call of RunWorkflowWithParameters.
+func (mr *MockDeploymentServiceMockRecorder) RunWorkflowWithParameters(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunWorkflowWithParameters", reflect.TypeOf((*MockDeploymentService)(nil).RunWorkflowWithParameters), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
 // UndeployApplication mocks base method.
 func (m *MockDeploymentService) UndeployApplication(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
