@@ -17,6 +17,7 @@ package alien4cloud
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -571,6 +572,117 @@ func Test_applicationService_SearchApplications(t *testing.T) {
 			}
 			if got1 != tt.want1 {
 				t.Errorf("applicationService.SearchApplications() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func Test_applicationService_SearchEnvironments(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case regexp.MustCompile(`.*/applications/existing/environments/search`).Match([]byte(r.URL.Path)):
+			var searchReq SearchRequest
+			rb, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Failed to read request body %+v", r)
+			}
+			defer r.Body.Close()
+			s := string(rb)
+			t.Logf("request: %s", s)
+
+			err = json.Unmarshal(rb, &searchReq)
+			if err != nil {
+				t.Errorf("Failed to unmarshal request body %+v", r)
+			}
+			var envList []Environment
+			if searchReq.Size > 0 {
+				if searchReq.Query == "queryval" {
+					envList = append(envList, Environment{
+						ID:     "01",
+						Name:   "queryval",
+						Status: "deployed",
+					})
+				} else if s := searchReq.Filters["status"]; len(s) > 0 && s[0] == "deployed" {
+					envList = append(envList, Environment{
+						ID:     "01",
+						Name:   "queryval",
+						Status: "deployed",
+					})
+					envList = append(envList, Environment{
+						ID:     "02",
+						Name:   "filterval",
+						Status: "deployed",
+					})
+				}
+			}
+
+			resultJson, err := json.Marshal(envList)
+			if err != nil {
+				t.Error("Failed to marshal result body")
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"data":{"types":["Application"],"data":%s,"totalResults":%d}}`, string(resultJson), len(envList))))
+			return
+		case regexp.MustCompile(`.*/applications/.*/environments/search`).Match([]byte(r.URL.Path)):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code": 404,"message":"not found"}}`))
+			return
+		}
+
+		// Should not go there
+		t.Errorf("Unexpected call for request %+v", r)
+	}))
+	defer ts.Close()
+
+	type args struct {
+		applicationID string
+		searchRequest SearchRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []Environment
+		want1   int
+		wantErr bool
+	}{
+		{"AppNotExist", args{"notExist", SearchRequest{Size: 10}}, nil, 0, true},
+		{"QueryEnv", args{"existing", SearchRequest{Query: "queryval", Size: 10}}, []Environment{
+			{
+				ID:     "01",
+				Name:   "queryval",
+				Status: "deployed",
+			}}, 1, false},
+		{"FilterEnv", args{"existing", SearchRequest{Filters: map[string][]string{"status": {"deployed"}}, Size: 10}}, []Environment{
+			{
+				ID:     "01",
+				Name:   "queryval",
+				Status: "deployed",
+			},
+			{
+				ID:     "02",
+				Name:   "filterval",
+				Status: "deployed",
+			},
+		}, 2, false},
+		{"Size0", args{"existing", SearchRequest{Query: "queryval", Size: 0}}, nil, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			a := &applicationService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+
+			got, got1, err := a.SearchEnvironments(context.Background(), tt.args.applicationID, tt.args.searchRequest)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applicationService.SearchEnvironments() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("applicationService.SearchEnvironments() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("applicationService.SearchEnvironments() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

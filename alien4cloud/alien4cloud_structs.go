@@ -196,8 +196,8 @@ type SimpleMark struct {
 // SearchRequest is the representation of a request to search objects such as topologies, orchestrators in the A4C catalog
 type SearchRequest struct {
 	Query   string              `json:"query,omitempty"`
-	From    int                 `json:"from,omitempty"`
-	Size    int                 `json:"size,omitempty"`
+	From    int                 `json:"from"`
+	Size    int                 `json:"size"`
 	Filters map[string][]string `json:"filters,omitempty"`
 }
 
@@ -725,4 +725,18 @@ type Group struct {
 	Description string   `json:"description,omitempty"`
 	Users       []string `json:"users,omitempty"`
 	Roles       []string `json:"roles,omitempty"`
+}
+
+// Environment holds properties of an Alien4Cloud environment
+type Environment struct {
+	ID                 string              `json:"id"`
+	Name               string              `json:"name"`
+	Status             string              `json:"status,omitempty"`
+	ApplicationID      string              `json:"applicationId,omitempty"`
+	CurrentVersionName string              `json:"currentVersionName,omitempty"`
+	DeployedVersion    string              `json:"deployedVersion,omitempty"`
+	Description        string              `json:"description,omitempty"`
+	EnvironmentType    string              `json:"environmentType,omitempty"`
+	UserRoles          map[string][]string `json:"userRoles,omitempty"`
+	GroupRoles         map[string][]string `json:"GroupRoles,omitempty"`
 }

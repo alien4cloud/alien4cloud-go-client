@@ -170,6 +170,22 @@ func (mr *MockApplicationServiceMockRecorder) SearchApplications(arg0, arg1 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchApplications", reflect.TypeOf((*MockApplicationService)(nil).SearchApplications), arg0, arg1)
 }
 
+// SearchEnvironments mocks base method.
+func (m *MockApplicationService) SearchEnvironments(arg0 context.Context, arg1 string, arg2 alien4cloud.SearchRequest) ([]alien4cloud.Environment, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchEnvironments", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]alien4cloud.Environment)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SearchEnvironments indicates an expected call of SearchEnvironments.
+func (mr *MockApplicationServiceMockRecorder) SearchEnvironments(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchEnvironments", reflect.TypeOf((*MockApplicationService)(nil).SearchEnvironments), arg0, arg1, arg2)
+}
+
 // SetTagToApplication mocks base method.
 func (m *MockApplicationService) SetTagToApplication(arg0 context.Context, arg1, arg2, arg3 string) error {
 	m.ctrl.T.Helper()

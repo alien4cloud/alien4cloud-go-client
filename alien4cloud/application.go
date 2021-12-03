@@ -52,6 +52,12 @@ type ApplicationService interface {
 	GetApplicationTag(ctx context.Context, applicationID string, tagKey string) (string, error)
 	// Returns the deployment topology for an application given an environment
 	GetDeploymentTopology(ctx context.Context, appID string, envID string) (*Topology, error)
+	// SearchEnvironments allows to list environments of a given applications using a given SearchRequest
+	//
+	// It returns a slice of Application and the total number of environments matching the search request query and filters.
+	// That means that this number can be used to control pagination processing along with the from and size parameters
+	// of the SearchRequest.
+	SearchEnvironments(ctx context.Context, applicationID string, searchRequest SearchRequest) ([]Environment, int, error)
 }
 
 type applicationService struct {
@@ -373,7 +379,53 @@ func (a *applicationService) SearchApplications(ctx context.Context, searchReque
 
 	err = ReadA4CResponse(response, &res)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Can't get applications IDs")
+		return nil, 0, errors.Wrap(err, "Can't get applications")
+	}
+
+	return res.Data.Data, res.Data.TotalResults, nil
+
+}
+
+func (a *applicationService) SearchEnvironments(ctx context.Context, applicationID string, searchRequest SearchRequest) ([]Environment, int, error) {
+
+	envSearchBody, err := json.Marshal(searchRequest)
+
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Cannot marshal a SearchRequest structure")
+	}
+
+	request, err := a.client.NewRequest(ctx,
+		"POST",
+		fmt.Sprintf("%s/applications/%s/environments/search", a4CRestAPIPrefix, applicationID),
+		bytes.NewReader(envSearchBody))
+
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Unable to create request to search A4C environment")
+	}
+
+	var res struct {
+		Data struct {
+			Types        []string      `json:"types"`
+			Data         []Environment `json:"data"`
+			TotalResults int           `json:"totalResults"`
+		} `json:"data"`
+		Error Error `json:"error"`
+	}
+
+	response, err := a.client.Do(request)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Unable to send request to search A4C environment")
+	}
+
+	if response.StatusCode == http.StatusNotFound {
+		discardHTTPResponseBody(response)
+		// No application with this filter have been found
+		return nil, 0, errors.Errorf("application %q does not exist", applicationID)
+	}
+
+	err = ReadA4CResponse(response, &res)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Can't get environments")
 	}
 
 	return res.Data.Data, res.Data.TotalResults, nil
