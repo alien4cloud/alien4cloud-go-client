@@ -94,6 +94,21 @@ func (mr *MockDeploymentServiceMockRecorder) GetCurrentDeploymentID(arg0, arg1, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentDeploymentID", reflect.TypeOf((*MockDeploymentService)(nil).GetCurrentDeploymentID), arg0, arg1, arg2)
 }
 
+// GetDeployment mocks base method.
+func (m *MockDeploymentService) GetDeployment(arg0 context.Context, arg1 string) (alien4cloud.Deployment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeployment", arg0, arg1)
+	ret0, _ := ret[0].(alien4cloud.Deployment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeployment indicates an expected call of GetDeployment.
+func (mr *MockDeploymentServiceMockRecorder) GetDeployment(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeployment", reflect.TypeOf((*MockDeploymentService)(nil).GetDeployment), arg0, arg1)
+}
+
 // GetDeploymentList mocks base method.
 func (m *MockDeploymentService) GetDeploymentList(arg0 context.Context, arg1, arg2 string) ([]alien4cloud.Deployment, error) {
 	m.ctrl.T.Helper()
