@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"testing"
@@ -29,6 +30,86 @@ import (
 
 	"gotest.tools/v3/assert"
 )
+
+func Test_deploymentService_GetDeployment(t *testing.T) {
+	closeCh := make(chan struct{})
+	defer close(closeCh)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		deploymentID := path.Base(r.URL.Path)
+
+		if deploymentID == "NotFound" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var resDep struct {
+			Data struct {
+				Deployment `json:"deployment"`
+			} `json:"data"`
+		}
+		resDep.Data.Deployment = Deployment{
+			ID:                       deploymentID,
+			EnvironmentID:            "envID",
+			StartDate:                mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"),
+			EndDate:                  mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET"),
+			DeploymentUsername:       "user",
+			LocationIds:              []string{"loc1", "loc2"},
+			OrchestratorDeploymentID: "orchestratorDeploymentID",
+			OrchestratorID:           "orchestratorID",
+			SourceID:                 "sourceID",
+			SourceName:               "sourceName",
+			SourceType:               "sourceType",
+			VersionID:                "versionID",
+			WorkflowExecutions:       map[string]string{"workflow1": "execution1", "workflow2": "execution2"},
+		}
+
+		b, err := json.Marshal(&resDep)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+
+	}))
+
+	type args struct {
+		ctx          context.Context
+		deploymentID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    Deployment
+		wantErr bool
+	}{
+		{"success",
+			args{context.Background(), "depID51"},
+			Deployment{ID: "depID51", EnvironmentID: "envID", StartDate: mustParseTime(t, "2020-01-13 21:58:27.377 +0100 CET"), EndDate: mustParseTime(t, "2020-01-13 21:58:45.749 +0100 CET"), DeploymentUsername: "user", LocationIds: []string{"loc1", "loc2"}, OrchestratorDeploymentID: "orchestratorDeploymentID", OrchestratorID: "orchestratorID", SourceID: "sourceID", SourceName: "sourceName", SourceType: "sourceType", VersionID: "versionID", WorkflowExecutions: map[string]string{"workflow1": "execution1", "workflow2": "execution2"}},
+			false,
+		},
+		{"failure",
+			args{context.Background(), "NotFound"},
+			Deployment{},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &deploymentService{
+				client: &a4cClient{client: http.DefaultClient, baseURL: ts.URL},
+			}
+			got, err := d.GetDeployment(tt.args.ctx, tt.args.deploymentID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("deploymentService.GetDeployment() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.DeepEqual(t, got, tt.want)
+		})
+	}
+
+}
 
 func Test_deploymentService_DeployApplication(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
