@@ -45,6 +45,8 @@ type DeploymentService interface {
 	UploadDeploymentInputArtifact(ctx context.Context, appID, envID, inputArtifact, filePath string) error
 	// Returns the deployment list for the given appID and envID
 	GetDeploymentList(ctx context.Context, appID string, envID string) ([]Deployment, error)
+	// Returns a deployment given its ID
+	GetDeployment(ctx context.Context, deploymentID string) (Deployment, error)
 	// Undeploys an application
 	UndeployApplication(ctx context.Context, appID string, envID string) error
 	// WaitUntilStateIs Waits until the state of an Alien4Cloud application is one of the given statuses as parameter and returns the actual status.
@@ -100,6 +102,32 @@ type ExecutionCallback func(*Execution, error)
 
 type deploymentService struct {
 	client *a4cClient
+}
+
+func (d *deploymentService) GetDeployment(ctx context.Context, deploymentID string) (Deployment, error) {
+	u := fmt.Sprintf("%s/deployments/%s", a4CRestAPIPrefix, deploymentID)
+
+	request, err := d.client.NewRequest(ctx,
+		"GET",
+		u,
+		nil)
+	if err != nil {
+		return Deployment{}, errors.Wrapf(err, "Failed to get deployment %q", deploymentID)
+	}
+
+	response, err := d.client.Do(request)
+	if err != nil {
+		return Deployment{}, errors.Wrapf(err, "Cannot send request to get deployment %q", deploymentID)
+	}
+
+	var res struct {
+		Data struct {
+			Deployment `json:"deployment"`
+		} `json:"data"`
+	}
+
+	err = ReadA4CResponse(response, &res)
+	return res.Data.Deployment, err
 }
 
 // Get matching locations where a given application can be deployed
