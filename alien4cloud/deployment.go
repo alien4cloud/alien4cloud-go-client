@@ -61,6 +61,12 @@ type DeploymentService interface {
 	GetAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName string, requestedAttributesName []string) (map[string]string, error)
 	// Returns the application deployment attributes for the specified instance of a node name
 	GetInstanceAttributesValue(ctx context.Context, applicationID string, environmentID string, nodeName, instanceName string, requestedAttributesName []string) (map[string]string, error)
+
+	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID with input parameters
+	RunWorkflowWithParameters(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, parameters map[string]interface{}, timeout time.Duration) (*Execution, error)
+	// Runs a workflow asynchronously with input parameters returning the execution id, results will be notified using the ExecutionCallback function.
+	// Cancelling the context cancels the function that monitor the execution
+	RunWorkflowAsyncWithParameters(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, parameters map[string]interface{}, callback ExecutionCallback) (string, error)
 	// Runs Alien4Cloud workflowName workflow for the given a4cAppID and a4cEnvID
 	RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*Execution, error)
 	// Runs a workflow asynchronously returning the execution id, results will be notified using the ExecutionCallback function.
@@ -577,10 +583,17 @@ func (d *deploymentService) getInstanceAttributesValue(ctx context.Context, appl
 // Runs a workflow asynchronously, results will be notified using the ExecutionCallback function.
 // Cancelling the context cancels the function that monitor the execution
 func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, callback ExecutionCallback) (string, error) {
+	return d.RunWorkflowAsyncWithParameters(ctx, a4cAppID, a4cEnvID, workflowName, nil, callback)
+}
+
+// Runs a workflow asynchronously with input parameters, results will be notified using the ExecutionCallback function.
+// Cancelling the context cancels the function that monitor the execution
+func (d *deploymentService) RunWorkflowAsyncWithParameters(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, parameters map[string]interface{}, callback ExecutionCallback) (string, error) {
 	type InputData struct {
 		Inputs map[string]interface{} `json:"inputs"`
 	}
 	var inputData InputData
+	inputData.Inputs = parameters
 	body, err := json.Marshal(inputData)
 	if err != nil {
 		return "", errors.Wrapf(err, "Cannot marshal body request %v", inputData)
@@ -642,13 +655,18 @@ func (d *deploymentService) RunWorkflowAsync(ctx context.Context, a4cAppID strin
 
 // RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID
 func (d *deploymentService) RunWorkflow(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, timeout time.Duration) (*Execution, error) {
+	return d.RunWorkflowWithParameters(ctx, a4cAppID, a4cEnvID, workflowName, nil, timeout)
+}
+
+// RunWorkflow runs a4c workflowName workflow for the given a4cAppID and a4cEnvID with input parameters
+func (d *deploymentService) RunWorkflowWithParameters(ctx context.Context, a4cAppID string, a4cEnvID string, workflowName string, parameters map[string]interface{}, timeout time.Duration) (*Execution, error) {
 	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
 	defer cancelFunc()
 
 	var execParam *Execution
 	doneCh := make(chan struct{})
 	var cbErr error
-	_, err := d.RunWorkflowAsync(ctx, a4cAppID, a4cEnvID, workflowName, func(exec *Execution, e error) {
+	_, err := d.RunWorkflowAsyncWithParameters(ctx, a4cAppID, a4cEnvID, workflowName, parameters, func(exec *Execution, e error) {
 		execParam = exec
 		cbErr = e
 		close(doneCh)
